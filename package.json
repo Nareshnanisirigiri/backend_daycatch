@@ -1,0 +1,29 @@
+{
+  "name": "day-catch-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "create:collections": "node createCollections.js",
+    "seed:collections": "node seedCollections.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "mongoose": "^9.3.0"
+  },
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nareshnanisirigiri/daycatch_backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Nareshnanisirigiri/daycatch_backend/issues"
+  },
+  "homepage": "https://github.com/Nareshnanisirigiri/daycatch_backend#readme"
+}
