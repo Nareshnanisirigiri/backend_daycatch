@@ -1,66 +1,33 @@
 import express from "express";
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import cors from "cors";
 import aggregationRoutes from "./routes/aggregationRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
-
-dotenv.config();
+import ordersRoutes from "./routes/ordersRoutes.js";
+import productRoutes from "./routes/productRoutes.js";
+import usersRoutes from "./routes/usersRoutes.js";
+import corsMiddleware from "./middleware/corsMiddleware.js";
+import notFound from "./middleware/notFound.js";
+import errorHandler from "./middleware/errorHandler.js";
+import connectDatabase from "./config/db.js";
+import { PORT } from "./config/serverConfig.js";
 
 const app = express();
-app.use(cors({
-    origin: ["http://localhost:3000"],
-    credentials: true
-}));
+app.use(corsMiddleware);
 app.use(express.json());
-
-const productSchema = new mongoose.Schema({
-    name: String,
-    price: Number,
-    description: String
-});
-
-const Product = mongoose.model("Product", productSchema);
 
 app.get("/", (req, res) => {
     res.send("API Running...");
 });
+app.use(productRoutes);
+app.use("/api/orders", ordersRoutes);
+app.use("/api/users", usersRoutes);
 app.use("/api", collectionRoutes);
 app.use("/aggregations", aggregationRoutes);
-
-app.post("/product", async (req, res) => {
-    try {
-        const product = new Product(req.body);
-        await product.save();
-        res.status(201).json(product);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get("/products", async (req, res) => {
-    try {
-        const products = await Product.find();
-        res.json(products);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-const PORT = process.env.PORT || 5001;
+app.use(notFound);
+app.use(errorHandler);
 
 async function startServer() {
-    if (!process.env.MONGO_URI) {
-        console.error("MongoDB Error: MONGO_URI is missing from backend/.env");
-        process.exit(1);
-    }
-
     try {
-        await mongoose.connect(process.env.MONGO_URI, {
-            family: 4,
-            serverSelectionTimeoutMS: 5000
-        });
-
+        await connectDatabase();
         console.log("MongoDB Connected");
         const server = app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
