@@ -31,7 +31,7 @@ function parseNumber(value, fallback) {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-router.get("/collections", (req, res) => {
+router.get("/", (req, res) => {
     return res.json({
         total: collections.length,
         collections

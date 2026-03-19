@@ -4,12 +4,12 @@ import * as productController from "../controllers/productController.js";
 const router = express.Router();
 
 router
-    .route("/api/products")
+    .route("/")
     .get(productController.getAllProducts)
     .post(productController.createProduct);
 
 router
-    .route("/api/products/:id")
+    .route("/:id")
     .get(productController.getProduct)
     .patch(productController.updateProduct)
     .delete(productController.deleteProduct);
