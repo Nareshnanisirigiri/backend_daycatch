@@ -1,21 +1,10 @@
-import Product from "../models/product.js";
+import { AdminProducts } from "../models/index.js";
+import * as factory from "./handlerFactory.js";
 
-export async function createProduct(req, res) {
-    try {
-        const product = new Product(req.body);
-        await product.save();
+export const getAllProducts = factory.getAll(AdminProducts);
+export const getProduct = factory.getOne(AdminProducts);
+export const createProduct = factory.createOne(AdminProducts);
+export const updateProduct = factory.updateOne(AdminProducts);
+export const deleteProduct = factory.deleteOne(AdminProducts);
 
-        return res.status(201).json(product);
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
-}
-
-export async function getProducts(req, res) {
-    try {
-        const products = await Product.find();
-        return res.json(products);
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
-}
+// Add custom product logic here (e.g., stock management)
