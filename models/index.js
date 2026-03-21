@@ -42,3 +42,4 @@ export { default as DeliveryBoyFeedback } from "./deliveryBoyFeedback.js";
 export { default as UserCallbackRequests } from "./userCallbackRequests.js";
 export { default as StoreCallbackRequests } from "./storeCallbackRequests.js";
 export { default as DeliveryBoyCallbackRequests } from "./deliveryBoyCallbackRequests.js";
+export { default as Role } from "./role.js";

@@ -16,12 +16,15 @@ import areaRoutes from "./routes/areaRoutes.js";
 import cityRoutes from "./routes/cityRoutes.js";
 import deliveryBoyRoutes from "./routes/deliveryBoyRoutes.js";
 import contentRoutes from "./routes/contentRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 
 const app = express();
 
 // 1) GLOBAL MIDDLEWARES
 app.use(corsMiddleware);
+app.options("*", corsMiddleware); // Handle preflight requests for all routes
 app.use(express.json());
+
 
 // 2) ROUTES
 app.get("/", (req, res) => {
@@ -38,6 +41,7 @@ app.use("/api/v1/delivery-boys", deliveryBoyRoutes);
 app.use("/api/v1/content", contentRoutes);
 app.use("/api/v1/reports", aggregationRoutes);
 app.use("/api/v1/collections", collectionRoutes); // Legacy/Generic support
+app.use("/api/v1/auth", authRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

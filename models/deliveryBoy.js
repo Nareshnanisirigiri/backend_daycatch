@@ -8,5 +8,7 @@ export default createCollectionModel("DeliveryBoy", "deliveryboy", {
     "Boy Password": string,
     Status: string,
     Orders: number,
+    "Total Earnings": number,
+    Rating: number,
     Details: mixed
 });

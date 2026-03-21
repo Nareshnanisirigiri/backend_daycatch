@@ -53,7 +53,8 @@ export const collections = [
     "img store",
     "app notice",
     "cancelling reason",
-    "Wallet_Rechage_History"
+    "Wallet_Rechage_History",
+    "roles"
 ];
 
 export const collectionSet = new Set(collections);
