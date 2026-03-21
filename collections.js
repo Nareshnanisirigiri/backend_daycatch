@@ -15,6 +15,7 @@ export const collections = [
     "users",
     "Adminproducts",
     "storeProducts",
+    "trending_search",
     "cities",
     "area",
     "storeList",
@@ -54,7 +55,8 @@ export const collections = [
     "app notice",
     "cancelling reason",
     "Wallet_Rechage_History",
-    "roles"
+    "roles",
+    "rejectedbystore"
 ];
 
 export const collectionSet = new Set(collections);

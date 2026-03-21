@@ -39,12 +39,23 @@ const sampleDocuments = {
             description: "Popular freshwater fish"
         }
     },
-    tax: {
-        filter: { "Tax Type name": "GST 5" },
-        document: {
-            "Tax Type name": "GST 5"
+    tax: [
+        {
+            "Tax Type name": "GST 5",
+            "Tax percentage": 5,
+            status: "Active"
+        },
+        {
+            "Tax Type name": "GST 12",
+            "Tax percentage": 12,
+            status: "Active"
+        },
+        {
+            "Tax Type name": "GST 18",
+            "Tax percentage": 18,
+            status: "Active"
         }
-    },
+    ],
     id: {
         filter: { ID: "ID-1001" },
         document: {
@@ -86,13 +97,20 @@ const sampleDocuments = {
             "Item Sale Report": "High demand for pomfret"
         }
     },
-    item_sale_report: {
-        filter: { "Product Name": "Premium Rohu" },
-        document: {
+    item_sale_report: [
+        {
             "Product Name": "Premium Rohu",
-            Stock: 120
+            "Variant Size": "500g",
+            Stock: 120,
+            "Total Weight": "60kg"
+        },
+        {
+            "Product Name": "Fresh Katla",
+            "Variant Size": "1kg",
+            Stock: 80,
+            "Total Weight": "80kg"
         }
-    },
+    ],
     tax_report: {
         filter: { "Product Name": "Premium Rohu" },
         document: {
@@ -229,125 +247,158 @@ const sampleDocuments = {
             User: "Ravi Kumar",
             "Delivery Date": now,
             Status: "Placed",
-            Details: { paymentMode: "UPI" },
+            Details: { paymentMode: "UPI", phone: "9876543210" },
             "cart product": [{ name: "Premium Rohu", qty: 2 }],
             Assign: "Ramesh Driver"
         }
     },
     "pending orders": {
-        filter: { "Cart ID": "CART-1002" },
+        filter: { "Cart ID": "PEN-5001" },
         document: {
-            "Cart ID": "CART-1002",
-            "Cart price": 499,
-            User: "Ravi Kumar",
+            "Cart ID": "PEN-5001",
+            "Cart price": 450,
+            User: "Suresh Raina",
             "Delivery Date": now,
             Status: "Pending",
-            Details: { note: "Awaiting confirmation" }
+            "Store Name": "Farm Fresh",
+            "Details": { "phone": "9988776655" }
         }
     },
     "cancelled orders": {
-        filter: { "Cart ID": "CART-1003" },
+        filter: { "Cart ID": "CAN-6001" },
         document: {
-            "Cart ID": "CART-1003",
-            "Cart price": 699,
-            User: "Ravi Kumar",
-            Store: "DayCatch Central Store",
-            "Delivery Boy": "Ramesh Driver",
+            "Cart ID": "CAN-6001",
+            "Cart price": 900,
+            User: "Vikram Singh",
             "Delivery Date": now,
             Status: "Cancelled",
-            reason: "Customer unavailable"
+            "Cancelling Reason": "Customer unavailable",
+            "Store Name": "Super Fresh",
+            "Boy Name": "Rahul Driver",
+            "Details": { "phone": "8877665544" }
         }
     },
-    ongoingorders: {
-        filter: { "Cart ID": "CART-1004" },
+    "ongoingorders": {
+        filter: { "Cart ID": "ONG-7001" },
         document: {
-            "Cart ID": "CART-1004",
-            "Cart price": 899,
-            User: "Ravi Kumar",
-            Store: "DayCatch Central Store",
+            "Cart ID": "ONG-7001",
+            "Cart price": 1500,
+            User: "Priya Patel",
             "Delivery Date": now,
-            Status: "Ongoing"
+            Status: "Ongoing",
+            "Store Name": "Farm Direct",
+            "Boy Name": "Amit Driver",
+            "Details": { "phone": "7766554433" }
         }
     },
     "out for orders": {
-        filter: { "Cart ID": "CART-1005" },
+        filter: { "Cart ID": "OUT-8001" },
         document: {
-            "Cart ID": "CART-1005",
-            "Cart price": 299,
-            User: "Ravi Kumar",
+            "Cart ID": "OUT-8001",
+            "Cart price": 600,
+            User: "Rahul Khanna",
             "Delivery Date": now,
             Status: "Out for Delivery",
-            Details: { etaMinutes: 20 }
+            "Store Name": "Village Store",
+            "Assign": "Suresh Delivery",
+            "Details": { "phone": "6655443322" }
         }
     },
     "payment failed orders": {
-        filter: { "Cart ID": "CART-1006" },
+        filter: { "Cart ID": "FAIL-9001" },
         document: {
-            "Cart ID": "CART-1006",
-            "Cart price": 549,
-            User: "Ravi Kumar",
+            "Cart ID": "FAIL-9001",
+            "Cart price": 250,
+            User: "Neha Gupta",
             "Delivery Date": now,
             Status: "Payment Failed",
-            Details: { gateway: "Razorpay" }
+            "Details": { "phone": "5544332211" }
         }
     },
     "completed orders": {
-        filter: { "Cart ID": "CART-1007" },
+        filter: { "Cart ID": "COM-1001" },
         document: {
-            "Cart ID": "CART-1007",
-            "Cart price": 999,
-            User: "Ravi Kumar",
-            Store: "DayCatch Central Store",
-            "Delivery Boy": "Ramesh Driver",
+            "Cart ID": "COM-1001",
+            "Cart price": 1100,
+            User: "Amitabh B",
+            "Store Name": "DayCatch Central Store",
+            "Boy Name": "Ramesh Driver",
             "Delivery Date": now,
-            Status: "Completed"
+            Status: "Completed",
+            "Details": { "phone": "1122334455" }
         }
     },
     "day wise orders": {
-        filter: { "Cart ID": "CART-1008" },
+        filter: { "Cart ID": "DW-101" },
         document: {
-            "Cart ID": "CART-1008",
-            "Cart price": 649,
-            User: "Ravi Kumar",
+            "Cart ID": "DW-101",
+            "Cart price": 300,
+            User: "John Doe",
             "Delivery Date": now,
-            Status: "Delivered",
-            "Delivery Boy": "Ramesh Driver",
-            "cart product": [{ name: "Premium Rohu", qty: 1 }],
-            payment: { mode: "Cash" },
-            status: "closed",
-            store: "DayCatch Central Store"
+            Status: "Placed",
+            "Store Name": "DayCatch Central Store",
+            "Boy Name": "Ramesh Driver",
+            "Products": [{ name: "Premium Rohu", qty: 1 }],
+            "Payment Type": "COD",
+            "Details": { "phone": "1234567890" }
         }
     },
     "missed orders": {
-        filter: { "Cart ID": "CART-1009" },
+        filter: { "Cart ID": "MIS-201" },
         document: {
-            "Cart ID": "CART-1009",
-            Store: "DayCatch Central Store",
-            "Total Price": 350,
-            User: "Ravi Kumar",
+            "Cart ID": "MIS-201",
+            "Store Name": "DayCatch Central Store",
+            "Total Price": 400,
+            User: "Jane Smith",
             "Delivery Date": now,
             Status: "Missed",
             "Cart Products": [{ name: "Premium Rohu", qty: 1 }],
             Assign: "Ramesh Driver",
-            "Order Status": "Missed"
+            "Order Status": "Missed",
+            "Details": { "phone": "0987654321" }
         }
     },
-    "payout requests": {
-        filter: { Store: "DayCatch Central Store", Amount: 15000 },
+    "rejectedbystore": {
+        filter: { "Cart ID": "REJ-301" },
         document: {
-            Store: "DayCatch Central Store",
-            Address: "Madhapur Main Road",
+            "Cart ID": "REJ-301",
+            "Cart price": 500,
+            User: "Suresh Raina",
+            "Delivery Date": now,
+            Status: "Rejected by Store",
+            "Store Name": "Super Fresh",
+            "Details": { "phone": "1234567890" }
+        }
+    },
+    "payout requests": [
+        {
+            "Store": "DayCatch Central Store",
+            "Address": "Madhapur Main Road",
+            "Phone": "9876543210",
             "Total Revenue": 50000,
             "Bank Account Details": {
-                accountHolder: "Naresh",
-                bank: "SBI",
-                accountNumber: "1234567890"
+                "accountNumber": "1234567890",
+                "ifsc": "SBIN000123"
             },
             "Already Paid": 30000,
             "Pending Balance": 20000,
-            Amount: 15000
+            "Amount": 15000,
+            "Status": "Pending"
+        },
+        {
+            "Store": "Fresh Fresh Outlet",
+            "Address": "Madhapur, Hyderabad",
+            "Phone": "9988776655",
+            "Total Revenue": 40000,
+            "Bank Account Details": "UPI: fresh@upi",
+            "Already Paid": 20000,
+            "Pending Balance": 20000,
+            "Amount": 5000,
+            "Status": "Approved",
+            "Payment Method": "UPI",
+            "Reference ID": "REF-SEC-001"
         }
-    },
+    ],
     payouts: {
         filter: { "Minimum Amount": 1000 },
         document: {
@@ -538,6 +589,14 @@ const sampleDocuments = {
             "Current Amount": 1200,
             Recharge: "Wallet top-up"
         }
+    },
+    trending_search: {
+        filter: { Keyword: "Organic Milk" },
+        document: {
+            Keyword: "Organic Milk",
+            "Search Count": 2857,
+            "Last Updated": now
+        }
     }
 };
 
@@ -557,17 +616,24 @@ async function seedCollections() {
         const inserted = [];
         const existing = [];
 
-        for (const [collectionName, { filter, document }] of Object.entries(sampleDocuments)) {
-            const result = await db.collection(collectionName).updateOne(
-                filter,
-                { $setOnInsert: document },
-                { upsert: true }
-            );
+        for (const [collectionName, data] of Object.entries(sampleDocuments)) {
+            const documents = Array.isArray(data) ? data : [data];
+            
+            for (const item of documents) {
+                const filter = item.filter || (item.Store ? { Store: item.Store } : (item["Cart ID"] ? { "Cart ID": item["Cart ID"] } : {}));
+                const document = item.document || item;
 
-            if (result.upsertedCount > 0) {
-                inserted.push(collectionName);
-            } else {
-                existing.push(collectionName);
+                const result = await db.collection(collectionName).updateOne(
+                    filter,
+                    { $setOnInsert: document },
+                    { upsert: true }
+                );
+
+                if (result.upsertedCount > 0) {
+                    inserted.push(`${collectionName} (${document.Store || document["Cart ID"] || "Unnamed"})`);
+                } else {
+                    existing.push(`${collectionName} (${document.Store || document["Cart ID"] || "Unnamed"})`);
+                }
             }
         }
 

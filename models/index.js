@@ -14,6 +14,7 @@ export { default as ParentCategories } from "./parentCategories.js";
 export { default as SubCategories } from "./subCategories.js";
 export { default as AdminProducts } from "./adminProducts.js";
 export { default as StoreProducts } from "./storeProducts.js";
+export { default as TrendingSearch } from "./trendingSearch.js";
 export { default as Cities } from "./cities.js";
 export { default as Area } from "./area.js";
 export { default as StoreList } from "./storeList.js";

@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "dev": "nodemon server.js",
     "create:collections": "node createCollections.js",
     "seed:collections": "node seedCollections.js"
   },

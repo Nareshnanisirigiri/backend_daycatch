@@ -23,7 +23,8 @@ const app = express();
 // 1) GLOBAL MIDDLEWARES
 app.use(corsMiddleware);
 app.options("*", corsMiddleware); // Handle preflight requests for all routes
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 
 // 2) ROUTES

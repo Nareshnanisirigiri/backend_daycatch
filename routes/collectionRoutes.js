@@ -56,6 +56,26 @@ router.post("/:collection", async (req, res) => {
     }
 });
 
+router.post("/:collection/bulk", async (req, res) => {
+    try {
+        const collection = getCollectionOrThrow(req.params.collection);
+        const payload = req.body;
+
+        if (!payload || !Array.isArray(payload)) {
+            return res.status(400).json({ error: "Request body must be a JSON array." });
+        }
+
+        const result = await collection.insertMany(payload);
+
+        return res.status(201).json({
+            message: `Successfully inserted ${result.insertedCount} documents.`,
+            insertedIds: result.insertedIds
+        });
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({ error: error.message });
+    }
+});
+
 router.get("/:collection", async (req, res) => {
     try {
         const { collection: collectionName } = req.params;
