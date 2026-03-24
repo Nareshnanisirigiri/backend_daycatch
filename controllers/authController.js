@@ -209,3 +209,25 @@ export const resetPassword = catchAsync(async (req, res, next) => {
 
     createSendToken(user, 200, res);
 });
+export const resetSuperAdmin = catchAsync(async (req, res, next) => {
+    const secretKey = req.headers["x-reset-secret"];
+    const expectedKey = process.env.RESET_SECRET || "daycatch-reset-2026";
+
+    if (!secretKey || secretKey !== expectedKey) {
+        return next(new ApiError("Unauthorized. Invalid or missing reset secret.", 403));
+    }
+
+    const deleted = await SubAdmin.findOneAndDelete({ "role Name": "Super Admin" });
+
+    if (!deleted) {
+        return res.status(200).json({
+            status: "ok",
+            message: "No Super Admin found. You can register now."
+        });
+    }
+
+    res.status(200).json({
+        status: "success",
+        message: "Super Admin has been removed. You may now register a new one."
+    });
+});
