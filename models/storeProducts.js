@@ -1,6 +1,6 @@
 import { createCollectionModel, types } from "./createCollectionModel.js";
 
-const { string, number } = types;
+const { string, number, date } = types;
 
 export default createCollectionModel("StoreProducts", "storeProducts", {
     Image: string,
@@ -8,5 +8,6 @@ export default createCollectionModel("StoreProducts", "storeProducts", {
     Price: number,
     MRP: number,
     Store: string,
-    status: string
+    status: string,
+    reviewedAt: date
 });

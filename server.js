@@ -17,6 +17,7 @@ import cityRoutes from "./routes/cityRoutes.js";
 import deliveryBoyRoutes from "./routes/deliveryBoyRoutes.js";
 import contentRoutes from "./routes/contentRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import * as contentController from "./controllers/contentController.js";
 
 const app = express();
 
@@ -31,6 +32,10 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.get("/", (req, res) => {
     res.send("DayCatch API Running...");
 });
+
+// Explicit High-Priority Content Synchronization Routes
+app.patch("/api/v1/content/about", contentController.updateAboutUs);
+app.patch("/api/v1/content/terms", contentController.updateTerms);
 
 app.use("/api/v1/users", usersRoutes);
 app.use("/api/v1/products", productRoutes);

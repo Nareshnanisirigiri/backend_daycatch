@@ -594,6 +594,19 @@ const sampleDocuments = {
         filter: { Keyword: "Organic Milk" },
         document: {
             Keyword: "Organic Milk",
+            "Store Product Id": "STORE-PROD-TRND-001",
+            "Product Id": "PROD-TRND-001",
+            "Product Name": "Organic Milk",
+            Category: "Dairy",
+            Type: "Milk",
+            "Product Image": "https://picsum.photos/seed/trendingmilk/200",
+            Store: "DayCatch Madhapur",
+            Tags: "organic,milk,daily-use",
+            Unit: "1 L",
+            MRP: 68,
+            price: 64,
+            status: "Active",
+            Position: 1,
             "Search Count": 2857,
             "Last Updated": now
         }
