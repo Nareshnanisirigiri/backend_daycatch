@@ -5,6 +5,9 @@ import { SubAdmin } from "../models/index.js";
 import catchAsync from "../utils/catchAsync.js";
 import ApiError from "../utils/apiError.js";
 
+const normalizeEmail = (email = "") => String(email).trim().toLowerCase();
+const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const signToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || "super-secret-key", {
         expiresIn: process.env.JWT_EXPIRES_IN || "90d",
@@ -23,6 +26,11 @@ const createSendToken = (user, statusCode, res) => {
 
 export const register = catchAsync(async (req, res, next) => {
     const { name, email, password, roleName } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!name || !normalizedEmail || !password) {
+        return next(new ApiError("Name, email, and password are required.", 400));
+    }
 
     if (roleName === "Super Admin") {
         const existingSuperAdmin = await SubAdmin.findOne({ "role Name": "Super Admin" });
@@ -31,29 +39,86 @@ export const register = catchAsync(async (req, res, next) => {
         }
     }
 
+    const existingAccount = await SubAdmin.findOne({
+        Email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: "i" }
+    });
+
+    if (existingAccount) {
+        return next(new ApiError("An account with this email already exists. Please login.", 409));
+    }
+
     const hashedPassword = await bcrypt.hash(password, 12);
     const newAdmin = await SubAdmin.create({
         Name: name,
-        Email: email,
+        Email: normalizedEmail,
         password: hashedPassword,
         "role Name": roleName || "Manager",
+        scope: "platform",
+        storeId: "",
+        storeName: "",
+        status: "Active",
         Image: "https://via.placeholder.com/150",
     });
 
     createSendToken(newAdmin, 201, res);
 });
 
+export const getRegisterStatus = catchAsync(async (req, res) => {
+    const existingSuperAdmin = await SubAdmin.findOne({ "role Name": "Super Admin" }).select("Name Email");
+
+    res.status(200).json({
+        status: "success",
+        canRegister: !existingSuperAdmin,
+        superAdminExists: Boolean(existingSuperAdmin),
+        message: existingSuperAdmin
+            ? "A Super Admin is already registered. Please login."
+            : "No Super Admin found. First-time setup is available.",
+        data: existingSuperAdmin
+            ? {
+                user: {
+                    Name: existingSuperAdmin.Name,
+                    Email: existingSuperAdmin.Email
+                }
+            }
+            : null
+    });
+});
+
 export const login = catchAsync(async (req, res, next) => {
     const { email, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
         return next(new ApiError("Please provide email and password!", 400));
     }
 
-    const user = await SubAdmin.findOne({ Email: email }).select("+password");
+    const user = await SubAdmin.findOne({
+        Email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: "i" }
+    }).select("+password");
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    if (!user) {
         return next(new ApiError("Incorrect email or password", 401));
+    }
+
+    let passwordMatches = false;
+    try {
+        passwordMatches = await bcrypt.compare(password, user.password);
+    } catch {
+        passwordMatches = false;
+    }
+
+    if (!passwordMatches && user.password === password) {
+        user.password = await bcrypt.hash(password, 12);
+        await user.save();
+        passwordMatches = true;
+    }
+
+    if (!passwordMatches) {
+        return next(new ApiError("Incorrect email or password", 401));
+    }
+
+    if ((user.status || "Active") !== "Active") {
+        return next(new ApiError("This account is inactive. Please contact the Super Admin.", 403));
     }
 
     createSendToken(user, 200, res);
@@ -108,7 +173,19 @@ export const updateProfile = catchAsync(async (req, res, next) => {
     if (!user) return next(new ApiError("User not found.", 404));
 
     if (Name) user.Name = Name;
-    if (Email) user.Email = Email;
+    if (Email) {
+        const normalizedEmail = normalizeEmail(Email);
+        const duplicateUser = await SubAdmin.findOne({
+            _id: { $ne: user._id },
+            Email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: "i" }
+        });
+
+        if (duplicateUser) {
+            return next(new ApiError("Another account is already using this email.", 409));
+        }
+
+        user.Email = normalizedEmail;
+    }
 
     await user.save();
 
@@ -121,10 +198,13 @@ export const updateProfile = catchAsync(async (req, res, next) => {
 
 export const forgotPassword = catchAsync(async (req, res, next) => {
     const { email } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!email) return next(new ApiError("Please provide an email address.", 400));
+    if (!normalizedEmail) return next(new ApiError("Please provide an email address.", 400));
 
-    const user = await SubAdmin.findOne({ Email: email });
+    const user = await SubAdmin.findOne({
+        Email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: "i" }
+    });
     if (!user) {
         return next(new ApiError("No account found with that email address.", 404));
     }
@@ -138,7 +218,8 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
     user.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
 
-    const resetURL = `http://localhost:3000/reset-password/${rawToken}`;
+    const resetAppBaseUrl = (process.env.ADMIN_PANEL_URL || "https://daycatchadmin.vercel.app").replace(/\/$/, "");
+    const resetURL = `${resetAppBaseUrl}/reset-password/${rawToken}`;
 
     try {
         const nodemailerMod = await import("nodemailer").catch(() => null);

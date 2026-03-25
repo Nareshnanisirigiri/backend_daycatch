@@ -8,6 +8,10 @@ export default createCollectionModel("SubAdmin", "sub-admin", {
     Email: string,
     password: string,
     "role Name": string,
+    scope: string,
+    storeId: string,
+    storeName: string,
+    status: string,
     passwordResetToken: string,
     passwordResetExpires: date
 });

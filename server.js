@@ -17,6 +17,7 @@ import cityRoutes from "./routes/cityRoutes.js";
 import deliveryBoyRoutes from "./routes/deliveryBoyRoutes.js";
 import contentRoutes from "./routes/contentRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import subAdminRoutes from "./routes/subAdminRoutes.js";
 import * as contentController from "./controllers/contentController.js";
 
 const app = express();
@@ -48,6 +49,7 @@ app.use("/api/v1/content", contentRoutes);
 app.use("/api/v1/reports", aggregationRoutes);
 app.use("/api/v1/collections", collectionRoutes); // Legacy/Generic support
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/sub-admins", subAdminRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,4 +1,5 @@
 import express from "express";
+import bcrypt from "bcryptjs";
 import { ObjectId } from "mongodb";
 import mongoose from "mongoose";
 import { getAggregationDefinition } from "../aggregations/index.js";
@@ -31,6 +32,22 @@ function parseNumber(value, fallback) {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function normalizeEmail(value = "") {
+    return String(value).trim().toLowerCase();
+}
+
+function escapeRegExp(value = "") {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getSubAdminRole(payload = {}) {
+    return payload["role Name"] || payload.roleName || payload.role || "";
+}
+
+function getSubAdminEmail(payload = {}) {
+    return payload.Email || payload.email || "";
+}
+
 router.get("/", (req, res) => {
     return res.json({
         total: collections.length,
@@ -40,11 +57,41 @@ router.get("/", (req, res) => {
 
 router.post("/:collection", async (req, res) => {
     try {
-        const collection = getCollectionOrThrow(req.params.collection);
+        const collectionName = req.params.collection;
+        const collection = getCollectionOrThrow(collectionName);
         const payload = req.body;
 
         if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
             return res.status(400).json({ error: "Request body must be a JSON object." });
+        }
+
+        if (collectionName === "sub-admin") {
+            const roleName = getSubAdminRole(payload);
+            const email = normalizeEmail(getSubAdminEmail(payload));
+
+            if (roleName === "Super Admin") {
+                return res.status(403).json({ error: "Use the main Super Admin registration flow for this account." });
+            }
+
+            if (!email) {
+                return res.status(400).json({ error: "Email is required for sub-admin accounts." });
+            }
+
+            if (!payload.password || !String(payload.password).trim()) {
+                return res.status(400).json({ error: "Password is required for sub-admin accounts." });
+            }
+
+            const existingAdmin = await collection.findOne({
+                Email: { $regex: `^${escapeRegExp(email)}$`, $options: "i" }
+            });
+
+            if (existingAdmin) {
+                return res.status(409).json({ error: "An admin account with this email already exists." });
+            }
+
+            payload.Email = email;
+            delete payload.email;
+            payload.password = await bcrypt.hash(String(payload.password), 12);
         }
 
         const result = await collection.insertOne(payload);
@@ -135,7 +182,8 @@ router.get("/:collection/:id", async (req, res) => {
 
 router.put("/:collection/:id", async (req, res) => {
     try {
-        const collection = getCollectionOrThrow(req.params.collection);
+        const collectionName = req.params.collection;
+        const collection = getCollectionOrThrow(collectionName);
         const _id = parseObjectId(req.params.id);
         const payload = req.body;
 
@@ -144,6 +192,49 @@ router.put("/:collection/:id", async (req, res) => {
         }
 
         delete payload._id;
+
+        if (collectionName === "sub-admin") {
+            const existingAdmin = await collection.findOne({ _id });
+
+            if (!existingAdmin) {
+                return res.status(404).json({ error: "Document not found." });
+            }
+
+            const currentRole = getSubAdminRole(existingAdmin);
+            const nextRole = getSubAdminRole(payload) || currentRole;
+
+            if (nextRole === "Super Admin" && currentRole !== "Super Admin") {
+                return res.status(403).json({ error: "Only the main Super Admin account can hold this role." });
+            }
+
+            if (payload.Email || payload.email) {
+                const email = normalizeEmail(getSubAdminEmail(payload));
+
+                if (!email) {
+                    return res.status(400).json({ error: "Email cannot be empty." });
+                }
+
+                const duplicateAdmin = await collection.findOne({
+                    _id: { $ne: _id },
+                    Email: { $regex: `^${escapeRegExp(email)}$`, $options: "i" }
+                });
+
+                if (duplicateAdmin) {
+                    return res.status(409).json({ error: "An admin account with this email already exists." });
+                }
+
+                payload.Email = email;
+                delete payload.email;
+            }
+
+            if ("password" in payload) {
+                if (payload.password && String(payload.password).trim()) {
+                    payload.password = await bcrypt.hash(String(payload.password), 12);
+                } else {
+                    delete payload.password;
+                }
+            }
+        }
 
         const result = await collection.findOneAndUpdate(
             { _id },
