@@ -3,8 +3,14 @@ import APIError from "../utils/apiError.js";
 import {
     AdminProducts,
     CancelledOrders,
+    CompletedOrders,
+    DayWiseOrders,
+    MissedOrders,
+    OngoingOrders,
     Orders,
+    OutForOrders,
     PayoutRequests,
+    PaymentFailedOrders,
     PendingOrders,
     StoreCallbackRequests,
     StoreList,
@@ -135,6 +141,18 @@ const serializeStoreProduct = (product) => {
     };
 };
 
+const getOrderIdentity = (order) =>
+    getStringValue(order?.["Cart ID"], order?.cartId, order?._id, order?.id);
+
+const buildRecentOrderRecord = (order) => ({
+    id: String(order?._id ?? order?.id ?? ""),
+    cartId: getStringValue(order?.["Cart ID"], order?.cartId, "N/A"),
+    customer: getStringValue(order?.User, order?.customer, "Unknown User"),
+    amount: getNumberValue(order?.["Cart price"], order?.["Total Price"], order?.amount),
+    status: getStringValue(order?.Status, order?.status, "Placed"),
+    deliveryDate: order?.["Delivery Date"] || order?.deliveryDate || null
+});
+
 const findStoreOrFail = async (storeId) => {
     const store = await StoreList.findById(storeId).lean();
     if (!store) {
@@ -197,6 +215,12 @@ const getDashboardSummary = async (storeProfile) => {
         orders,
         pendingOrders,
         cancelledOrders,
+        ongoingOrders,
+        outForOrders,
+        paymentFailedOrders,
+        completedOrders,
+        missedOrders,
+        dayWiseOrders,
         callbacks,
         payouts
     ] = await Promise.all([
@@ -205,6 +229,12 @@ const getDashboardSummary = async (storeProfile) => {
         Orders.find().lean(),
         PendingOrders.find().lean(),
         CancelledOrders.find().lean(),
+        OngoingOrders.find().lean(),
+        OutForOrders.find().lean(),
+        PaymentFailedOrders.find().lean(),
+        CompletedOrders.find().lean(),
+        MissedOrders.find().lean(),
+        DayWiseOrders.find().lean(),
         StoreCallbackRequests.find().lean(),
         PayoutRequests.find().lean()
     ]);
@@ -213,42 +243,91 @@ const getDashboardSummary = async (storeProfile) => {
     const scopedOrders = orders.filter((record) => matchesStoreRecord(record, storeProfile));
     const scopedPendingOrders = pendingOrders.filter((record) => matchesStoreRecord(record, storeProfile));
     const scopedCancelledOrders = cancelledOrders.filter((record) => matchesStoreRecord(record, storeProfile));
+    const scopedOngoingOrders = ongoingOrders.filter((record) => matchesStoreRecord(record, storeProfile));
+    const scopedOutForOrders = outForOrders.filter((record) => matchesStoreRecord(record, storeProfile));
+    const scopedPaymentFailedOrders = paymentFailedOrders.filter((record) => matchesStoreRecord(record, storeProfile));
+    const scopedCompletedOrders = completedOrders.filter((record) => matchesStoreRecord(record, storeProfile));
+    const scopedMissedOrders = missedOrders.filter((record) => matchesStoreRecord(record, storeProfile));
+    const scopedDayWiseOrders = dayWiseOrders.filter((record) => matchesStoreRecord(record, storeProfile));
     const scopedCallbacks = callbacks.filter((record) => matchesStoreRecord(record, storeProfile));
     const scopedPayouts = payouts.filter((record) => matchesStoreRecord(record, storeProfile));
 
+    const allScopedOrders = [
+        ...scopedOrders,
+        ...scopedPendingOrders,
+        ...scopedCancelledOrders,
+        ...scopedOngoingOrders,
+        ...scopedOutForOrders,
+        ...scopedPaymentFailedOrders,
+        ...scopedCompletedOrders,
+        ...scopedMissedOrders,
+        ...scopedDayWiseOrders
+    ];
+
+    const uniqueOrdersMap = new Map();
+    for (const order of allScopedOrders) {
+        const identity = getOrderIdentity(order);
+        if (!identity) continue;
+
+        const current = uniqueOrdersMap.get(identity);
+        const currentDate = getDateValue(current?.["Delivery Date"] || current?.deliveryDate);
+        const incomingDate = getDateValue(order?.["Delivery Date"] || order?.deliveryDate);
+
+        if (!current || (incomingDate && (!currentDate || incomingDate > currentDate))) {
+            uniqueOrdersMap.set(identity, order);
+        }
+    }
+
+    const uniqueOrders = Array.from(uniqueOrdersMap.values());
+
     const revenue =
         scopedPayments.reduce((total, payment) => total + getNumberValue(payment?.["Total Revenue"]), 0) ||
-        scopedOrders.reduce((total, order) => total + getNumberValue(order?.["Cart price"]), 0);
+        uniqueOrders.reduce((total, order) => total + getNumberValue(order?.["Cart price"], order?.["Total Price"]), 0);
 
     const approvedProducts = storeProducts.filter(
         (product) => normalize(product?.status) === "approved"
     ).length;
     const activeDeals = storeProducts.filter((product) => product?.deal?.price).length;
     const spotlightProducts = storeProducts.filter((product) => product?.spotlight?.enabled).length;
+    const totalOrders = uniqueOrders.length;
+    const completedCount = scopedCompletedOrders.length;
+    const fulfillmentRate = totalOrders > 0 ? Math.round((completedCount / totalOrders) * 100) : 0;
+    const recentOrders = uniqueOrders
+        .sort((left, right) => {
+            const leftDate = getDateValue(left?.["Delivery Date"] || left?.deliveryDate)?.getTime() || 0;
+            const rightDate = getDateValue(right?.["Delivery Date"] || right?.deliveryDate)?.getTime() || 0;
+            return rightDate - leftDate;
+        })
+        .slice(0, 5)
+        .map(buildRecentOrderRecord);
 
     return {
         store: storeProfile,
+        totalOrders,
+        totalRevenue: revenue,
+        totalProducts: storeProducts.length,
+        callbackCount: scopedCallbacks.length,
+        fulfillmentRate,
+        recentOrders,
         summary: {
             revenue,
+            totalOrders,
             newOrders: scopedOrders.length,
             pendingOrders: scopedPendingOrders.length,
             cancelledOrders: scopedCancelledOrders.length,
+            ongoingOrders: scopedOngoingOrders.length,
+            outForDeliveryOrders: scopedOutForOrders.length,
+            paymentFailedOrders: scopedPaymentFailedOrders.length,
+            completedOrders: completedCount,
+            missedOrders: scopedMissedOrders.length,
             approvedProducts,
             payoutRequests: scopedPayouts.length,
             callbackRequests: scopedCallbacks.length,
             activeDeals,
-            spotlightProducts
+            spotlightProducts,
+            totalProducts: storeProducts.length,
+            fulfillmentRate
         },
-        recentOrders: scopedOrders
-            .slice(0, 5)
-            .map((order) => ({
-                id: String(order?._id ?? order?.id ?? ""),
-                cartId: getStringValue(order?.["Cart ID"], order?.cartId),
-                customer: getStringValue(order?.User, order?.customer, "Unknown User"),
-                amount: getNumberValue(order?.["Cart price"]),
-                status: getStringValue(order?.Status, order?.status, "Placed"),
-                deliveryDate: order?.["Delivery Date"] || null
-            })),
         counters: {
             lowStockProducts: storeProducts.filter((product) => getNumberValue(product?.stock) > 0 && getNumberValue(product?.stock) <= 5).length
         }

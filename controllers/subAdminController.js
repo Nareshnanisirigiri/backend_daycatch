@@ -14,6 +14,7 @@ const sanitizeSubAdmin = (user) => {
         Image: user.Image,
         Name: user.Name,
         Email: user.Email,
+        phone: user.phone || "",
         "role Name": user["role Name"],
         scope: user.scope || "platform",
         storeId: user.storeId || "",
@@ -73,6 +74,7 @@ export const createSubAdmin = catchAsync(async (req, res, next) => {
         Name,
         Email,
         password,
+        phone,
         "role Name": roleNameInput,
         roleName,
         scope: requestedScope,
@@ -84,10 +86,11 @@ export const createSubAdmin = catchAsync(async (req, res, next) => {
 
     const resolvedName = String(Name || req.body.name || "").trim();
     const normalizedEmail = normalizeEmail(Email || req.body.email);
+    const resolvedPhone = String(phone || req.body["Mobile Number"] || req.body.Phone || req.body.mobile || "").trim();
     const resolvedRoleName = String(roleNameInput || roleName || "").trim();
 
-    if (!resolvedName || !normalizedEmail || !password || !resolvedRoleName) {
-        return next(new APIError("Name, email, password, and role name are required.", 400));
+    if (!resolvedName || !normalizedEmail || !resolvedPhone || !password || !resolvedRoleName) {
+        return next(new APIError("Name, email, phone, password, and role name are required.", 400));
     }
 
     if (resolvedRoleName === "Super Admin") {
@@ -109,6 +112,7 @@ export const createSubAdmin = catchAsync(async (req, res, next) => {
         Image: Image || "https://via.placeholder.com/150",
         Name: resolvedName,
         Email: normalizedEmail,
+        phone: resolvedPhone,
         password: hashedPassword,
         "role Name": resolvedRoleName,
         scope: assignment.scope,
@@ -151,6 +155,10 @@ export const updateSubAdmin = catchAsync(async (req, res, next) => {
 
     if (req.body.Name || req.body.name) {
         user.Name = String(req.body.Name || req.body.name).trim();
+    }
+
+    if (req.body.phone || req.body["Mobile Number"] || req.body.Phone || req.body.mobile) {
+        user.phone = String(req.body.phone || req.body["Mobile Number"] || req.body.Phone || req.body.mobile).trim();
     }
 
     if (req.body["role Name"] || req.body.roleName) {

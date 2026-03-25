@@ -6,6 +6,7 @@ export default createCollectionModel("SubAdmin", "sub-admin", {
     Image: string,
     Name: string,
     Email: string,
+    phone: string,
     password: string,
     "role Name": string,
     scope: string,
