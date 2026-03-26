@@ -1,12 +1,20 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { SubAdmin } from "../models/index.js";
+import { StoreList, SubAdmin } from "../models/index.js";
 import catchAsync from "../utils/catchAsync.js";
 import ApiError from "../utils/apiError.js";
 
 const normalizeEmail = (email = "") => String(email).trim().toLowerCase();
 const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const normalizeStatus = (value = "") => String(value || "").trim().toLowerCase();
+const formatStatusLabel = (value = "") => {
+    const normalized = normalizeStatus(value);
+    if (!normalized) return "pending approval";
+    if (normalized === "active") return "active";
+    if (normalized === "approved") return "approved";
+    return normalized.replace(/[-_]+/g, " ");
+};
 
 const signToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || "super-secret-key", {
@@ -117,8 +125,31 @@ export const login = catchAsync(async (req, res, next) => {
         return next(new ApiError("Incorrect email or password", 401));
     }
 
-    if ((user.status || "Active") !== "Active") {
+    if (normalizeStatus(user.status || "Active") !== "active") {
         return next(new ApiError("This account is inactive. Please contact the Super Admin.", 403));
+    }
+
+    if (user.scope === "store") {
+        if (!user.storeId) {
+            return next(new ApiError("This store sub-admin is not assigned to a store yet.", 403));
+        }
+
+        const assignedStore = await StoreList.findById(user.storeId).lean();
+        if (!assignedStore) {
+            return next(new ApiError("The assigned store for this sub-admin no longer exists.", 403));
+        }
+
+        const storeStatus = normalizeStatus(assignedStore.status || assignedStore.Status || "Active");
+        if (!["active", "approved"].includes(storeStatus)) {
+            return next(
+                new ApiError(
+                    `This store is currently ${formatStatusLabel(storeStatus)}. Please contact the Super Admin.`,
+                    403
+                )
+            );
+        }
+
+        user.storeName = user.storeName || assignedStore["Store Name"] || "";
     }
 
     createSendToken(user, 200, res);

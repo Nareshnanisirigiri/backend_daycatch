@@ -65,7 +65,28 @@ const buildStoreProfile = (store) => ({
     ordersPerSlot: getNumberValue(store?.["Orders Per Slot"], store?.ordersPerSlot, store?.slot),
     startTime: getStringValue(store?.["Start Time"], store?.startTime, store?.time, "N/A"),
     endTime: getStringValue(store?.["End Time"], store?.endTime, "N/A"),
-    logo: getStringValue(store?.["Profile Pic"], store?.logo)
+    logo: getStringValue(store?.["Profile Pic"], store?.logo),
+    settings: {
+        openingTime: getStringValue(store?.["Start Time"], store?.startTime, store?.time, "06:00"),
+        closingTime: getStringValue(store?.["End Time"], store?.endTime, "21:00"),
+        interval: getNumberValue(store?.["Slot Interval"], store?.slotInterval, 30),
+        freeDeliveryLimit: getNumberValue(store?.["Free Delivery Limit"], store?.freeDeliveryLimit),
+        deliveryCharge: getNumberValue(store?.["Delivery Charge"], store?.deliveryCharge),
+        minOrderValue: getNumberValue(store?.["Minimum Order Value"], store?.minOrderValue),
+        maxOrderValue: getNumberValue(store?.["Maximum Order Value"], store?.maxOrderValue),
+        driverIncentive: getNumberValue(store?.["Driver Incentive"], store?.driverIncentive)
+    }
+});
+
+const buildStoreSettingsPayload = (payload = {}) => ({
+    "Start Time": getStringValue(payload.openingTime, payload["Start Time"], "06:00"),
+    "End Time": getStringValue(payload.closingTime, payload["End Time"], "21:00"),
+    "Slot Interval": getNumberValue(payload.interval, payload["Slot Interval"], 30),
+    "Free Delivery Limit": getNumberValue(payload.freeDeliveryLimit, payload["Free Delivery Limit"]),
+    "Delivery Charge": getNumberValue(payload.deliveryCharge, payload["Delivery Charge"]),
+    "Minimum Order Value": getNumberValue(payload.minOrderValue, payload["Minimum Order Value"]),
+    "Maximum Order Value": getNumberValue(payload.maxOrderValue, payload["Maximum Order Value"]),
+    "Driver Incentive": getNumberValue(payload.driverIncentive, payload["Driver Incentive"]),
 });
 
 const matchesStoreRecord = (record, storeProfile) => {
@@ -342,6 +363,40 @@ export const getStoreWorkspaceDashboard = catchAsync(async (req, res) => {
     res.status(200).json({
         status: "success",
         data: dashboard
+    });
+});
+
+export const getStoreWorkspaceSettings = catchAsync(async (req, res) => {
+    const store = await findStoreOrFail(req.params.id);
+    const storeProfile = buildStoreProfile(store);
+
+    res.status(200).json({
+        status: "success",
+        data: storeProfile.settings
+    });
+});
+
+export const updateStoreWorkspaceSettings = catchAsync(async (req, res) => {
+    const existingStore = await findStoreOrFail(req.params.id);
+    const updates = buildStoreSettingsPayload(req.body);
+
+    const updatedStore = await StoreList.findByIdAndUpdate(
+        existingStore._id,
+        {
+            ...updates,
+            updatedAt: new Date()
+        },
+        {
+            returnDocument: "after",
+            runValidators: true
+        }
+    ).lean();
+
+    const updatedProfile = buildStoreProfile(updatedStore);
+
+    res.status(200).json({
+        status: "success",
+        data: updatedProfile.settings
     });
 });
 

@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { SubAdmin } from "../models/index.js";
+import { StoreList, SubAdmin } from "../models/index.js";
 import catchAsync from "../utils/catchAsync.js";
 import APIError from "../utils/apiError.js";
 
@@ -10,6 +10,8 @@ const getBearerToken = (authorizationHeader = "") => {
 
     return authorizationHeader.split(" ")[1]?.trim() || "";
 };
+
+const normalizeStatus = (value = "") => String(value || "").trim().toLowerCase();
 
 export const protect = catchAsync(async (req, res, next) => {
     const token = getBearerToken(req.headers.authorization);
@@ -33,8 +35,24 @@ export const protect = catchAsync(async (req, res, next) => {
         return next(new APIError("The account for this session no longer exists.", 401));
     }
 
-    if ((currentUser.status || "Active") !== "Active") {
+    if (normalizeStatus(currentUser.status || "Active") !== "active") {
         return next(new APIError("This account is inactive. Please contact the Super Admin.", 403));
+    }
+
+    if (currentUser.scope === "store") {
+        if (!currentUser.storeId) {
+            return next(new APIError("This store sub-admin is not assigned to any store.", 403));
+        }
+
+        const assignedStore = await StoreList.findById(currentUser.storeId).lean();
+        if (!assignedStore) {
+            return next(new APIError("The assigned store for this session no longer exists.", 403));
+        }
+
+        const storeStatus = normalizeStatus(assignedStore.status || assignedStore.Status || "Active");
+        if (!["active", "approved"].includes(storeStatus)) {
+            return next(new APIError("This store is not active yet. Please contact the Super Admin.", 403));
+        }
     }
 
     req.user = currentUser;

@@ -15,6 +15,10 @@ router
     .post(protect, restrictToPlatformUsers, storeController.createStore);
 
 router.get("/:id/workspace/dashboard", protect, allowStoreWorkspaceAccess, storeWorkspaceController.getStoreWorkspaceDashboard);
+router
+    .route("/:id/workspace/settings")
+    .get(protect, allowStoreWorkspaceAccess, storeWorkspaceController.getStoreWorkspaceSettings)
+    .patch(protect, allowStoreWorkspaceAccess, storeWorkspaceController.updateStoreWorkspaceSettings);
 router.get("/:id/workspace/catalog/products", protect, allowStoreWorkspaceAccess, storeWorkspaceController.getStoreCatalogProducts);
 router.patch("/:id/workspace/catalog/products/:productId/pricing", protect, allowStoreWorkspaceAccess, storeWorkspaceController.updateStoreCatalogPricing);
 router.patch("/:id/workspace/catalog/products/:productId/stock", protect, allowStoreWorkspaceAccess, storeWorkspaceController.updateStoreCatalogStock);
