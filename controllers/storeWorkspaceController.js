@@ -1,5 +1,6 @@
 import catchAsync from "../utils/catchAsync.js";
 import APIError from "../utils/apiError.js";
+import { ObjectId } from "mongodb";
 import {
     AdminProducts,
     CancelledOrders,
@@ -173,6 +174,390 @@ const buildRecentOrderRecord = (order) => ({
     status: getStringValue(order?.Status, order?.status, "Placed"),
     deliveryDate: order?.["Delivery Date"] || order?.deliveryDate || null
 });
+
+const ORDER_VIEW_CONFIG = {
+    all: { model: Orders, collectionName: "orders" },
+    pending: { model: PendingOrders, collectionName: "pending orders" },
+    cancelled: { model: CancelledOrders, collectionName: "cancelled orders" },
+    confirmed: { model: OngoingOrders, collectionName: "ongoingorders" },
+    out_for_delivery: { model: OutForOrders, collectionName: "out for orders" },
+    payment_failed: { model: PaymentFailedOrders, collectionName: "payment failed orders" },
+    completed: { model: CompletedOrders, collectionName: "completed orders" },
+    missed: { model: MissedOrders, collectionName: "missed orders" },
+    day_wise: { model: DayWiseOrders, collectionName: "day wise orders" },
+    today: { model: DayWiseOrders, collectionName: "day wise orders", dateMode: "today" },
+    next_day: { model: DayWiseOrders, collectionName: "day wise orders", dateMode: "next_day" }
+};
+
+const ORDER_COLLECTIONS = {
+    orders: Orders.collection,
+    "pending orders": PendingOrders.collection,
+    "cancelled orders": CancelledOrders.collection,
+    ongoingorders: OngoingOrders.collection,
+    "out for orders": OutForOrders.collection,
+    "payment failed orders": PaymentFailedOrders.collection,
+    "completed orders": CompletedOrders.collection,
+    "missed orders": MissedOrders.collection,
+    "day wise orders": DayWiseOrders.collection
+};
+
+const ORDER_CLEANUP_COLLECTIONS = [
+    "pending orders",
+    "cancelled orders",
+    "ongoingorders",
+    "out for orders",
+    "payment failed orders",
+    "completed orders",
+    "missed orders"
+];
+
+const ORDER_STATUS_TRANSITIONS = {
+    accepted: { targetCollection: "ongoingorders", status: "Accepted" },
+    processing: { targetCollection: "ongoingorders", status: "Processing" },
+    cancelled: { targetCollection: "cancelled orders", status: "Cancelled" },
+    "out for delivery": { targetCollection: "out for orders", status: "Out For Delivery" },
+    delivered: { targetCollection: "completed orders", status: "Delivered" }
+};
+
+const dateKeyFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+});
+
+const getRawCollectionDocuments = async (model) => model.collection.find({}).toArray();
+
+const getOrderDeliveryDate = (order) =>
+    getDateValue(order?.["Delivery Date"] || order?.deliveryDate || order?.createdAt);
+
+const getDateKey = (value) => {
+    const dateValue = value instanceof Date ? value : getDateValue(value);
+    return dateValue ? dateKeyFormatter.format(dateValue) : "";
+};
+
+const getComparisonDateKey = (offset = 0) => {
+    const comparisonDate = new Date();
+    comparisonDate.setDate(comparisonDate.getDate() + offset);
+    return getDateKey(comparisonDate);
+};
+
+const getOrderPaymentMethod = (order) =>
+    getStringValue(
+        order?.paymentMethod,
+        order?.payment,
+        order?.paymentStatus,
+        order?.["Payment Method"],
+        order?.["Payment Status"]
+    );
+
+const matchesPaymentMethod = (order, paymentMethod = "") => {
+    const normalizedPaymentFilter = normalize(paymentMethod);
+    if (!normalizedPaymentFilter || normalizedPaymentFilter === "all") return true;
+    return normalize(getOrderPaymentMethod(order)) === normalizedPaymentFilter;
+};
+
+const matchesDateWindow = (order, filters = {}) => {
+    const { fromDate = "", toDate = "" } = filters;
+    if (!fromDate && !toDate) return true;
+
+    const orderDateKey = getDateKey(getOrderDeliveryDate(order));
+    if (!orderDateKey) return false;
+    if (fromDate && orderDateKey < fromDate) return false;
+    if (toDate && orderDateKey > toDate) return false;
+    return true;
+};
+
+const dedupeOrders = (orders = []) => {
+    const dedupedOrders = new Map();
+
+    for (const order of orders) {
+        const identity = getOrderIdentity(order) || String(order?._id ?? "");
+        if (!identity) continue;
+
+        const currentOrder = dedupedOrders.get(identity);
+        const currentDate = getOrderDeliveryDate(currentOrder)?.getTime() || 0;
+        const nextDate = getOrderDeliveryDate(order)?.getTime() || 0;
+
+        if (!currentOrder || nextDate >= currentDate) {
+            dedupedOrders.set(identity, order);
+        }
+    }
+
+    return Array.from(dedupedOrders.values());
+};
+
+const getOrdersForAllView = async () => {
+    const orderModels = [
+        Orders,
+        PendingOrders,
+        CancelledOrders,
+        OngoingOrders,
+        OutForOrders,
+        PaymentFailedOrders,
+        CompletedOrders,
+        MissedOrders
+    ];
+
+    const results = await Promise.all(orderModels.map((model) => getRawCollectionDocuments(model)));
+    return dedupeOrders(results.flat());
+};
+
+const getStoreWorkspaceOrdersForView = async (storeProfile, view, filters = {}) => {
+    const normalizedView = getStringValue(view, "all").replace(/-/g, "_");
+    const viewConfig = ORDER_VIEW_CONFIG[normalizedView] || ORDER_VIEW_CONFIG.all;
+
+    let orders = [];
+
+    if (["all", "day_wise", "today", "next_day"].includes(normalizedView)) {
+        orders = await getOrdersForAllView();
+    } else {
+        orders = await getRawCollectionDocuments(viewConfig.model);
+    }
+
+    let filteredOrders = orders.filter((order) => matchesStoreRecord(order, storeProfile));
+
+    if (viewConfig.dateMode === "today") {
+        const todayKey = getComparisonDateKey(0);
+        filteredOrders = filteredOrders.filter(
+            (order) => getDateKey(getOrderDeliveryDate(order)) === todayKey
+        );
+    }
+
+    if (viewConfig.dateMode === "next_day") {
+        const nextDayKey = getComparisonDateKey(1);
+        filteredOrders = filteredOrders.filter(
+            (order) => getDateKey(getOrderDeliveryDate(order)) === nextDayKey
+        );
+    }
+
+    filteredOrders = filteredOrders.filter((order) => matchesDateWindow(order, filters));
+    filteredOrders = filteredOrders.filter((order) => matchesPaymentMethod(order, filters.paymentMethod));
+
+    return filteredOrders.sort((left, right) => {
+        const leftDate = getOrderDeliveryDate(left)?.getTime() || 0;
+        const rightDate = getOrderDeliveryDate(right)?.getTime() || 0;
+        return rightDate - leftDate;
+    });
+};
+
+const normalizeOrderProduct = (product = {}) => ({
+    ...product,
+    product_name: getStringValue(product?.product_name, product?.name, product?.title, "Product"),
+    qty: getNumberValue(product?.qty, product?.quantity, 1),
+    price: getNumberValue(product?.price),
+    total: getNumberValue(product?.total, product?.qty * product?.price),
+    image: getStringValue(product?.image, product?.img, product?.product_image)
+});
+
+const buildOrderMutationPayload = (order, overrides = {}) => {
+    const baseOrder = { ...(order || {}) };
+    delete baseOrder._id;
+
+    const products =
+        baseOrder.Products ||
+        baseOrder.products ||
+        baseOrder["cart product"] ||
+        baseOrder["Cart Products"] ||
+        baseOrder.Details?.Products ||
+        [];
+
+    const normalizedProducts = Array.isArray(products)
+        ? products.map(normalizeOrderProduct)
+        : [];
+
+    const nextStatus = getStringValue(
+        overrides.Status,
+        overrides.status,
+        baseOrder.Status,
+        baseOrder.status,
+        "Pending"
+    );
+    const nextOrderStatus = getStringValue(
+        overrides["Order Status"],
+        overrides.orderStatus,
+        baseOrder["Order Status"],
+        baseOrder.orderStatus,
+        nextStatus
+    );
+
+    const payload = {
+        ...baseOrder,
+        "Cart ID": getStringValue(baseOrder?.["Cart ID"], baseOrder?.cartId, order?._id),
+        "Cart price": getNumberValue(baseOrder?.["Cart price"], baseOrder?.["Total Price"], baseOrder?.amount),
+        User: getStringValue(baseOrder?.User, baseOrder?.user, baseOrder?.customer, "Unknown User"),
+        "User Phone": getStringValue(
+            baseOrder?.["User Phone"],
+            baseOrder?.phone,
+            baseOrder?.Details?.phone,
+            "N/A"
+        ),
+        "Delivery Date": baseOrder?.["Delivery Date"] || baseOrder?.deliveryDate || baseOrder?.createdAt || null,
+        "Time Slot": getStringValue(
+            baseOrder?.["Time Slot"],
+            baseOrder?.timeSlot,
+            baseOrder?.Details?.["Time Slot"],
+            baseOrder?.Details?.timeSlot,
+            "N/A"
+        ),
+        Address: getStringValue(
+            baseOrder?.Address,
+            baseOrder?.address,
+            baseOrder?.Details?.address,
+            baseOrder?.Details?.Address,
+            "N/A"
+        ),
+        "Store Name": getStringValue(
+            baseOrder?.["Store Name"],
+            baseOrder?.storeName,
+            baseOrder?.Store,
+            baseOrder?.store,
+            baseOrder?.Details?.["Store Name"],
+            baseOrder?.Details?.Store
+        ),
+        Store: getStringValue(
+            baseOrder?.Store,
+            baseOrder?.["Store Name"],
+            baseOrder?.storeName,
+            baseOrder?.Details?.Store
+        ),
+        storeId: getStringValue(baseOrder?.storeId, baseOrder?.["Store ID"]),
+        "Boy Name": getStringValue(
+            baseOrder?.["Boy Name"],
+            baseOrder?.["Delivery Boy"],
+            baseOrder?.Assign,
+            baseOrder?.deliveryBoyName,
+            baseOrder?.Details?.["Boy Name"],
+            "Not Assigned"
+        ),
+        Assign: getStringValue(
+            baseOrder?.Assign,
+            baseOrder?.["Boy Name"],
+            baseOrder?.["Delivery Boy"],
+            baseOrder?.deliveryBoyName,
+            "Not Assigned"
+        ),
+        Products: normalizedProducts,
+        status: nextStatus,
+        Status: nextStatus,
+        orderStatus: nextOrderStatus,
+        "Order Status": nextOrderStatus,
+        updatedAt: new Date(),
+        ...Object.fromEntries(Object.entries(overrides).filter(([, value]) => value !== undefined))
+    };
+
+    delete payload._id;
+    return payload;
+};
+
+const findOrderByIdInCollection = async (collectionName, orderId) => {
+    if (!ObjectId.isValid(orderId)) return null;
+    return ORDER_COLLECTIONS[collectionName]?.findOne({ _id: new ObjectId(orderId) });
+};
+
+const findOrderByCartIdInCollection = async (collectionName, cartId) => {
+    if (!cartId) return null;
+
+    return ORDER_COLLECTIONS[collectionName]?.findOne({
+        $or: [{ "Cart ID": cartId }, { cartId }]
+    });
+};
+
+const upsertOrderByCartIdInCollection = async (collectionName, cartId, payload) => {
+    const collection = ORDER_COLLECTIONS[collectionName];
+    if (!collection) {
+        throw new APIError(`Unsupported order collection: ${collectionName}`, 400);
+    }
+
+    const existingOrder = await findOrderByCartIdInCollection(collectionName, cartId);
+    if (existingOrder?._id) {
+        await collection.findOneAndUpdate(
+            { _id: existingOrder._id },
+            { $set: payload },
+            { returnDocument: "after" }
+        );
+        return existingOrder._id;
+    }
+
+    const result = await collection.insertOne(payload);
+    return result.insertedId;
+};
+
+const removeOrderByCartIdFromCollection = async (collectionName, cartId) => {
+    if (!cartId || !ORDER_COLLECTIONS[collectionName]) return;
+    await ORDER_COLLECTIONS[collectionName].deleteMany({
+        $or: [{ "Cart ID": cartId }, { cartId }]
+    });
+};
+
+const findOrderAcrossCollections = async (orderId) => {
+    const collectionNames = ["orders", "day wise orders", ...ORDER_CLEANUP_COLLECTIONS];
+
+    for (const collectionName of collectionNames) {
+        const order = await findOrderByIdInCollection(collectionName, orderId);
+        if (order) {
+            return { collectionName, order };
+        }
+    }
+
+    return { collectionName: "", order: null };
+};
+
+const syncStoreOrderStatusChange = async ({
+    sourceCollection,
+    order,
+    nextStatus,
+    cancellationReason
+}) => {
+    const normalizedStatus = normalize(nextStatus);
+    const transition = ORDER_STATUS_TRANSITIONS[normalizedStatus];
+
+    if (!transition) {
+        throw new APIError("Unsupported order status transition", 400);
+    }
+
+    const cartId = getOrderIdentity(order);
+    if (!cartId) {
+        throw new APIError("This order does not have a valid cart identifier.", 400);
+    }
+
+    const orderFromHistory = await findOrderByCartIdInCollection("orders", cartId);
+    const baseOrder = orderFromHistory || order;
+    const nextPayload = buildOrderMutationPayload(baseOrder, {
+        status: transition.status,
+        Status: transition.status,
+        orderStatus: transition.orderStatus || transition.status,
+        "Order Status": transition.orderStatus || transition.status,
+        "Cancelling Reason":
+            transition.status === "Cancelled"
+                ? getStringValue(
+                      cancellationReason,
+                      baseOrder?.["Cancelling Reason"],
+                      baseOrder?.Details?.["Cancelling Reason"],
+                      "Cancelled by Store Manager"
+                  )
+                : undefined
+    });
+
+    await upsertOrderByCartIdInCollection("orders", cartId, nextPayload);
+
+    if (getOrderDeliveryDate(baseOrder)) {
+        await upsertOrderByCartIdInCollection("day wise orders", cartId, nextPayload);
+    }
+
+    await upsertOrderByCartIdInCollection(transition.targetCollection, cartId, nextPayload);
+
+    for (const collectionName of ORDER_CLEANUP_COLLECTIONS) {
+        if (collectionName === transition.targetCollection) continue;
+        await removeOrderByCartIdFromCollection(collectionName, cartId);
+    }
+
+    if (sourceCollection && sourceCollection !== "orders" && sourceCollection !== "day wise orders") {
+        await removeOrderByCartIdFromCollection(sourceCollection, cartId);
+    }
+
+    return nextPayload;
+};
 
 const findStoreOrFail = async (storeId) => {
     const store = await StoreList.findById(storeId).lean();
@@ -633,5 +1018,65 @@ export const updateStoreSpotlight = catchAsync(async (req, res) => {
         status: "success",
         results: selectedProducts.length,
         data: selectedProducts
+    });
+});
+
+export const getStoreWorkspaceOrders = catchAsync(async (req, res) => {
+    const store = await findStoreOrFail(req.params.id);
+    const storeProfile = buildStoreProfile(store);
+    const view = getStringValue(req.query.view, "all").replace(/-/g, "_");
+    const filters = {
+        fromDate: getStringValue(req.query.fromDate),
+        toDate: getStringValue(req.query.toDate),
+        paymentMethod: getStringValue(req.query.paymentMethod)
+    };
+
+    const orders = await getStoreWorkspaceOrdersForView(storeProfile, view, filters);
+
+    res.status(200).json({
+        status: "success",
+        results: orders.length,
+        data: orders
+    });
+});
+
+export const updateStoreWorkspaceOrderStatus = catchAsync(async (req, res) => {
+    const store = await findStoreOrFail(req.params.id);
+    const storeProfile = buildStoreProfile(store);
+    const view = getStringValue(req.body.view, req.query.view, "all").replace(/-/g, "_");
+    const requestedStatus = getStringValue(req.body.nextStatus, req.body.status);
+    const cancellationReason = getStringValue(
+        req.body.cancellationReason,
+        req.body["Cancelling Reason"]
+    );
+
+    if (!requestedStatus) {
+        throw new APIError("nextStatus is required for order updates.", 400);
+    }
+
+    const initialCollectionName = ORDER_VIEW_CONFIG[view]?.collectionName || "orders";
+    let sourceCollection = initialCollectionName;
+    let sourceOrder = await findOrderByIdInCollection(initialCollectionName, req.params.orderId);
+
+    if (!sourceOrder) {
+        const fallbackResult = await findOrderAcrossCollections(req.params.orderId);
+        sourceCollection = fallbackResult.collectionName || initialCollectionName;
+        sourceOrder = fallbackResult.order;
+    }
+
+    if (!sourceOrder || !matchesStoreRecord(sourceOrder, storeProfile)) {
+        throw new APIError("Order not found for this store.", 404);
+    }
+
+    const updatedOrder = await syncStoreOrderStatusChange({
+        sourceCollection,
+        order: sourceOrder,
+        nextStatus: requestedStatus,
+        cancellationReason
+    });
+
+    res.status(200).json({
+        status: "success",
+        data: updatedOrder
     });
 });

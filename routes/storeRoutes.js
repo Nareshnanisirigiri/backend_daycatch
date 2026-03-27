@@ -16,6 +16,15 @@ router
 
 router.get("/:id/workspace/dashboard", protect, allowStoreWorkspaceAccess, storeWorkspaceController.getStoreWorkspaceDashboard);
 router
+    .route("/:id/workspace/orders")
+    .get(protect, allowStoreWorkspaceAccess, storeWorkspaceController.getStoreWorkspaceOrders);
+router.patch(
+    "/:id/workspace/orders/:orderId/status",
+    protect,
+    allowStoreWorkspaceAccess,
+    storeWorkspaceController.updateStoreWorkspaceOrderStatus
+);
+router
     .route("/:id/workspace/settings")
     .get(protect, allowStoreWorkspaceAccess, storeWorkspaceController.getStoreWorkspaceSettings)
     .patch(protect, allowStoreWorkspaceAccess, storeWorkspaceController.updateStoreWorkspaceSettings);
