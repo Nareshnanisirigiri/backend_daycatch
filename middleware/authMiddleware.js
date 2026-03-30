@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
-import { StoreList, SubAdmin } from "../models/index.js";
+import { StoreList } from "../models/index.js";
 import catchAsync from "../utils/catchAsync.js";
 import APIError from "../utils/apiError.js";
+import { findAdminAccountById } from "../utils/adminAccountUtils.js";
 
 const getBearerToken = (authorizationHeader = "") => {
     if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
@@ -27,9 +28,12 @@ export const protect = catchAsync(async (req, res, next) => {
         return next(new APIError("Your session is invalid or has expired.", 401));
     }
 
-    const currentUser = await SubAdmin.findById(decoded.id).select(
+    const account = await findAdminAccountById(
+        decoded.id,
+        decoded.accountType,
         "-password -passwordResetToken -passwordResetExpires"
     );
+    const currentUser = account?.user;
 
     if (!currentUser) {
         return next(new APIError("The account for this session no longer exists.", 401));
@@ -56,6 +60,7 @@ export const protect = catchAsync(async (req, res, next) => {
     }
 
     req.user = currentUser;
+    req.userAccountType = account?.accountType || "";
     next();
 });
 

@@ -1,4 +1,5 @@
 export const collections = [
+    "super-admin",
     "sub-admin",
     "parentcategories",
     "subcategories",

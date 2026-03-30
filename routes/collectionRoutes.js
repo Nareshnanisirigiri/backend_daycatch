@@ -40,12 +40,73 @@ function escapeRegExp(value = "") {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const SUPER_ADMIN_ROLE_NAME = "Super Admin";
+const ADMIN_EMAIL_LOOKUP_FIELDS = ["Email", "email", "Email ID"];
+
 function getSubAdminRole(payload = {}) {
     return payload["role Name"] || payload.roleName || payload.role || "";
 }
 
 function getSubAdminEmail(payload = {}) {
     return payload.Email || payload.email || "";
+}
+
+function isAdminCollection(collectionName = "") {
+    return collectionName === "sub-admin" || collectionName === "super-admin";
+}
+
+function buildAdminEmailLookup(email = "") {
+    const escapedEmail = escapeRegExp(email);
+
+    return {
+        $or: ADMIN_EMAIL_LOOKUP_FIELDS.map((field) => ({
+            [field]: { $regex: `^\\s*${escapedEmail}\\s*$`, $options: "i" }
+        }))
+    };
+}
+
+async function findExistingAdminAccountByEmail(email, exclude = {}) {
+    const db = mongoose.connection.db;
+    const collectionsToSearch = ["super-admin", "sub-admin"];
+
+    for (const adminCollectionName of collectionsToSearch) {
+        const filter = buildAdminEmailLookup(email);
+
+        if (adminCollectionName === "super-admin") {
+            filter["role Name"] = SUPER_ADMIN_ROLE_NAME;
+        }
+
+        if (exclude.collectionName === adminCollectionName && exclude._id) {
+            filter._id = { $ne: exclude._id };
+        }
+
+        const account = await db.collection(adminCollectionName).findOne(filter);
+        if (account) {
+            return account;
+        }
+    }
+
+    return null;
+}
+
+async function findExistingSuperAdmin(exclude = {}) {
+    const db = mongoose.connection.db;
+    const collectionsToSearch = ["super-admin", "sub-admin"];
+
+    for (const adminCollectionName of collectionsToSearch) {
+        const filter = { "role Name": SUPER_ADMIN_ROLE_NAME };
+
+        if (exclude.collectionName === adminCollectionName && exclude._id) {
+            filter._id = { $ne: exclude._id };
+        }
+
+        const account = await db.collection(adminCollectionName).findOne(filter);
+        if (account) {
+            return account;
+        }
+    }
+
+    return null;
 }
 
 router.get("/", (req, res) => {
@@ -65,25 +126,36 @@ router.post("/:collection", async (req, res) => {
             return res.status(400).json({ error: "Request body must be a JSON object." });
         }
 
-        if (collectionName === "sub-admin") {
+        if (isAdminCollection(collectionName)) {
             const roleName = getSubAdminRole(payload);
             const email = normalizeEmail(getSubAdminEmail(payload));
+            const isSuperAdminCollection = collectionName === "super-admin";
 
-            if (roleName === "Super Admin") {
+            if (!isSuperAdminCollection && roleName === SUPER_ADMIN_ROLE_NAME) {
                 return res.status(403).json({ error: "Use the main Super Admin registration flow for this account." });
             }
 
             if (!email) {
-                return res.status(400).json({ error: "Email is required for sub-admin accounts." });
+                return res.status(400).json({ error: "Email is required for admin accounts." });
             }
 
             if (!payload.password || !String(payload.password).trim()) {
-                return res.status(400).json({ error: "Password is required for sub-admin accounts." });
+                return res.status(400).json({ error: "Password is required for admin accounts." });
             }
 
-            const existingAdmin = await collection.findOne({
-                Email: { $regex: `^${escapeRegExp(email)}$`, $options: "i" }
-            });
+            if (isSuperAdminCollection) {
+                const existingSuperAdmin = await findExistingSuperAdmin();
+                if (existingSuperAdmin) {
+                    return res.status(403).json({ error: "A Super Admin is already registered. Please login." });
+                }
+
+                payload["role Name"] = SUPER_ADMIN_ROLE_NAME;
+                payload.scope = "platform";
+                payload.storeId = "";
+                payload.storeName = "";
+            }
+
+            const existingAdmin = await findExistingAdminAccountByEmail(email);
 
             if (existingAdmin) {
                 return res.status(409).json({ error: "An admin account with this email already exists." });
@@ -193,18 +265,35 @@ router.put("/:collection/:id", async (req, res) => {
 
         delete payload._id;
 
-        if (collectionName === "sub-admin") {
+        if (isAdminCollection(collectionName)) {
             const existingAdmin = await collection.findOne({ _id });
+            const isSuperAdminCollection = collectionName === "super-admin";
 
             if (!existingAdmin) {
                 return res.status(404).json({ error: "Document not found." });
             }
 
             const currentRole = getSubAdminRole(existingAdmin);
-            const nextRole = getSubAdminRole(payload) || currentRole;
+            const nextRole = getSubAdminRole(payload) || currentRole || (isSuperAdminCollection ? SUPER_ADMIN_ROLE_NAME : "");
 
-            if (nextRole === "Super Admin" && currentRole !== "Super Admin") {
+            if (!isSuperAdminCollection && nextRole === SUPER_ADMIN_ROLE_NAME && currentRole !== SUPER_ADMIN_ROLE_NAME) {
                 return res.status(403).json({ error: "Only the main Super Admin account can hold this role." });
+            }
+
+            if (isSuperAdminCollection && nextRole !== SUPER_ADMIN_ROLE_NAME) {
+                return res.status(403).json({ error: "The super-admin collection can store only the platform owner account." });
+            }
+
+            if (nextRole === SUPER_ADMIN_ROLE_NAME) {
+                const existingSuperAdmin = await findExistingSuperAdmin({ collectionName, _id });
+                if (existingSuperAdmin) {
+                    return res.status(403).json({ error: "A Super Admin is already registered. Please login." });
+                }
+
+                payload["role Name"] = SUPER_ADMIN_ROLE_NAME;
+                payload.scope = "platform";
+                payload.storeId = "";
+                payload.storeName = "";
             }
 
             if (payload.Email || payload.email) {
@@ -214,9 +303,9 @@ router.put("/:collection/:id", async (req, res) => {
                     return res.status(400).json({ error: "Email cannot be empty." });
                 }
 
-                const duplicateAdmin = await collection.findOne({
-                    _id: { $ne: _id },
-                    Email: { $regex: `^${escapeRegExp(email)}$`, $options: "i" }
+                const duplicateAdmin = await findExistingAdminAccountByEmail(email, {
+                    collectionName,
+                    _id
                 });
 
                 if (duplicateAdmin) {
@@ -254,8 +343,21 @@ router.put("/:collection/:id", async (req, res) => {
 
 router.delete("/:collection/:id", async (req, res) => {
     try {
-        const collection = getCollectionOrThrow(req.params.collection);
+        const { collection: collectionName } = req.params;
+        const collection = getCollectionOrThrow(collectionName);
         const _id = parseObjectId(req.params.id);
+
+        if (collectionName === "super-admin") {
+            return res.status(403).json({ error: "Delete the Super Admin only through the protected reset flow." });
+        }
+
+        if (collectionName === "sub-admin") {
+            const existingAdmin = await collection.findOne({ _id });
+            if (existingAdmin?.["role Name"] === SUPER_ADMIN_ROLE_NAME) {
+                return res.status(403).json({ error: "Delete the Super Admin only through the protected reset flow." });
+            }
+        }
+
         const result = await collection.findOneAndDelete({ _id });
 
         if (!result) {

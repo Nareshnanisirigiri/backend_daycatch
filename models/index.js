@@ -1,4 +1,5 @@
 export { default as SubAdmin } from "./subAdmin.js";
+export { default as SuperAdmin } from "./superAdmin.js";
 export { default as Membership } from "./membership.js";
 export { default as IdDocument } from "./id.js";
 export { default as Tax } from "./tax.js";

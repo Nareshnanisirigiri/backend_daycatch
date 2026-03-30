@@ -2,9 +2,11 @@ import bcrypt from "bcryptjs";
 import { StoreList, SubAdmin } from "../models/index.js";
 import catchAsync from "../utils/catchAsync.js";
 import APIError from "../utils/apiError.js";
-
-const normalizeEmail = (email = "") => String(email).trim().toLowerCase();
-const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+import {
+    findDuplicateAdminByEmail,
+    normalizeEmail,
+    SUPER_ADMIN_ROLE_NAME
+} from "../utils/adminAccountUtils.js";
 
 const sanitizeSubAdmin = (user) => {
     if (!user) return null;
@@ -45,7 +47,7 @@ const resolveStoreAssignment = async (scope, storeId, storeName) => {
 };
 
 export const getAllSubAdmins = catchAsync(async (req, res) => {
-    const users = await SubAdmin.find({ "role Name": { $ne: "Super Admin" } })
+    const users = await SubAdmin.find({ "role Name": { $ne: SUPER_ADMIN_ROLE_NAME } })
         .select("-password -passwordResetToken -passwordResetExpires")
         .sort({ createdAt: -1, Name: 1 });
 
@@ -93,13 +95,11 @@ export const createSubAdmin = catchAsync(async (req, res, next) => {
         return next(new APIError("Name, email, phone, password, and role name are required.", 400));
     }
 
-    if (resolvedRoleName === "Super Admin") {
+    if (resolvedRoleName === SUPER_ADMIN_ROLE_NAME) {
         return next(new APIError("Use the Super Admin registration flow for the platform owner.", 403));
     }
 
-    const existingAccount = await SubAdmin.findOne({
-        Email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: "i" }
-    });
+    const existingAccount = await findDuplicateAdminByEmail(normalizedEmail);
 
     if (existingAccount) {
         return next(new APIError("An account with this email already exists.", 409));
@@ -134,16 +134,16 @@ export const updateSubAdmin = catchAsync(async (req, res, next) => {
         return next(new APIError("Sub-admin not found.", 404));
     }
 
-    if (user["role Name"] === "Super Admin") {
+    if (user["role Name"] === SUPER_ADMIN_ROLE_NAME) {
         return next(new APIError("Update the Super Admin through the profile flow.", 403));
     }
 
     const nextEmail = req.body.Email || req.body.email;
     if (nextEmail) {
         const normalizedEmail = normalizeEmail(nextEmail);
-        const duplicateAccount = await SubAdmin.findOne({
-            _id: { $ne: user._id },
-            Email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: "i" }
+        const duplicateAccount = await findDuplicateAdminByEmail(normalizedEmail, {
+            id: user._id,
+            accountType: "sub-admin"
         });
 
         if (duplicateAccount) {
@@ -163,7 +163,7 @@ export const updateSubAdmin = catchAsync(async (req, res, next) => {
 
     if (req.body["role Name"] || req.body.roleName) {
         const nextRoleName = String(req.body["role Name"] || req.body.roleName).trim();
-        if (nextRoleName === "Super Admin") {
+        if (nextRoleName === SUPER_ADMIN_ROLE_NAME) {
             return next(new APIError("Sub-admins cannot be promoted through this form.", 403));
         }
         user["role Name"] = nextRoleName;
@@ -205,7 +205,7 @@ export const deleteSubAdmin = catchAsync(async (req, res, next) => {
         return next(new APIError("Sub-admin not found.", 404));
     }
 
-    if (user["role Name"] === "Super Admin") {
+    if (user["role Name"] === SUPER_ADMIN_ROLE_NAME) {
         return next(new APIError("Delete the Super Admin only through the protected reset flow.", 403));
     }
 

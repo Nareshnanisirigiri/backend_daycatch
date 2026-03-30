@@ -33,6 +33,7 @@ import {
     StoreNotifications,
     StorePayments,
     StoreProducts,
+    SuperAdmin,
     SubAdmin,
     SubCategories,
     Tax,
@@ -96,6 +97,10 @@ function buildPipeline({ lookups = [] }) {
 }
 
 const aggregationDefinitions = {
+    "super-admin": {
+        model: SuperAdmin,
+        description: "Super admin records without external references."
+    },
     "sub-admin": {
         model: SubAdmin,
         description: "Sub admin records without external references."

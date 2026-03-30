@@ -6,10 +6,13 @@ export default createCollectionModel("Users", "users", {
     "User Name": string,
     "User Phone": string,
     "User Email": string,
+    "User Password": string,
     "Registration Date": date,
     "Is Verified": boolean,
     status: string,
     City: string,
+    Society: string,
     Location: string,
-    "Wallet Balance": mixed
+    "Wallet Balance": mixed,
+    "User Rewards": mixed
 });
