@@ -45,3 +45,4 @@ export { default as UserCallbackRequests } from "./userCallbackRequests.js";
 export { default as StoreCallbackRequests } from "./storeCallbackRequests.js";
 export { default as DeliveryBoyCallbackRequests } from "./deliveryBoyCallbackRequests.js";
 export { default as Role } from "./role.js";
+export { default as Session } from "./session.js";

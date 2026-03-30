@@ -4,6 +4,12 @@ import notFound from "./middleware/notFound.js";
 import errorHandler from "./middleware/errorHandler.js";
 import connectDatabase from "./config/db.js";
 import { PORT } from "./config/serverConfig.js";
+import helmet from "helmet";
+import mongoSanitize from "express-mongo-sanitize";
+import hpp from "hpp";
+import morgan from "morgan";
+import { rateLimit } from "express-rate-limit";
+import cookieParser from "cookie-parser";
 
 // Routes
 import aggregationRoutes from "./routes/aggregationRoutes.js";
@@ -22,11 +28,36 @@ import * as contentController from "./controllers/contentController.js";
 
 const app = express();
 
-// 1) GLOBAL MIDDLEWARES
+// 1) GLOBAL SECURITY MIDDLEWARES
+// Set security HTTP headers
+app.use(helmet());
+
+// Development logging
+if (process.env.NODE_ENV === "development" || !process.env.NODE_ENV) {
+    app.use(morgan("dev"));
+}
+
 app.use(corsMiddleware);
 app.options("*", corsMiddleware); // Handle preflight requests for all routes
 app.use(express.json({ limit: "10mb" }));
+app.use(cookieParser());
+
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
+// Limit requests from same API
+const limiter = rateLimit({
+    max: 1000, 
+    windowMs: 60 * 60 * 1000,
+    message: "Too many requests from this IP, please try again in an hour!"
+});
+app.use("/api", limiter);
+
+// Data sanitization against NoSQL query injection
+app.use(mongoSanitize());
+
+// Prevent parameter pollution
+app.use(hpp());
+
 
 
 // 2) ROUTES

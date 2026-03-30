@@ -23,9 +23,12 @@ export const protect = catchAsync(async (req, res, next) => {
 
     let decoded;
     try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET || "super-secret-key");
-    } catch {
-        return next(new APIError("Your session is invalid or has expired.", 401));
+        decoded = jwt.verify(token, process.env.JWT_SECRET || "access-secret-key");
+    } catch (err) {
+        if (err.name === "TokenExpiredError") {
+            return next(new APIError("Your session has expired. Please refresh your token.", 401));
+        }
+        return next(new APIError("Your session is invalid.", 401));
     }
 
     const account = await findAdminAccountById(

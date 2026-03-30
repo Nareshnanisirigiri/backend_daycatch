@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { StoreList, SubAdmin, SuperAdmin } from "../models/index.js";
+import { StoreList, SubAdmin, SuperAdmin, Session } from "../models/index.js";
 import catchAsync from "../utils/catchAsync.js";
 import ApiError from "../utils/apiError.js";
 import {
@@ -27,21 +27,41 @@ const formatStatusLabel = (value = "") => {
     return normalized.replace(/[-_]+/g, " ");
 };
 
-const signToken = (id, accountType = ADMIN_ACCOUNT_TYPES.SUB) => {
-    return jwt.sign({ id, accountType }, process.env.JWT_SECRET || "super-secret-key", {
-        expiresIn: process.env.JWT_EXPIRES_IN || "90d",
+const signAccessToken = (id, accountType) => {
+    return jwt.sign({ id, accountType }, process.env.JWT_SECRET || "access-secret-key", {
+        expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
     });
 };
 
-const createSendToken = (user, statusCode, res, accountType = ADMIN_ACCOUNT_TYPES.SUB) => {
-    const token = signToken(user._id, accountType);
-    user.password = undefined;
-    res.status(statusCode).json({
-        status: "success",
-        token,
-        data: { user },
+const signRefreshToken = (id, accountType) => {
+    return jwt.sign({ id, accountType }, process.env.JWT_REFRESH_SECRET || "refresh-secret-key", {
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
     });
 };
+
+const createSendToken = catchAsync(async (user, statusCode, res, accountType) => {
+    const accessToken = signAccessToken(user._id, accountType);
+    const refreshToken = signRefreshToken(user._id, accountType);
+
+    // Save refresh token to database session
+    await Session.create({
+        userId: user._id,
+        accountType,
+        refreshToken,
+        userAgent: res.req.headers["user-agent"],
+        ipAddress: res.req.ip || res.req.headers["x-forwarded-for"] || res.req.connection.remoteAddress,
+    });
+
+    // Remove password from output
+    user.password = undefined;
+
+    res.status(statusCode).json({
+        status: "success",
+        token: accessToken,
+        refreshToken, // Also returning refresh token for frontend to store
+        data: { user },
+    });
+});
 
 export const register = catchAsync(async (req, res, next) => {
     const { name, email, password, roleName } = req.body;
@@ -377,5 +397,56 @@ export const resetSuperAdmin = catchAsync(async (req, res, next) => {
     res.status(200).json({
         status: "success",
         message: "Super Admin has been removed. You may now register a new one."
+    });
+});
+
+export const refreshToken = catchAsync(async (req, res, next) => {
+    const { refreshToken: incomingToken } = req.body;
+
+    if (!incomingToken) {
+        return next(new ApiError("No refresh token provided.", 401));
+    }
+
+    // 1) Verify refresh token
+    let decoded;
+    try {
+        decoded = jwt.verify(incomingToken, process.env.JWT_REFRESH_SECRET || "refresh-secret-key");
+    } catch {
+        return next(new ApiError("Invalid or expired refresh token.", 401));
+    }
+
+    // 2) Check if session exists in DB
+    const session = await Session.findOne({
+        userId: decoded.id,
+        refreshToken: incomingToken
+    });
+
+    if (!session) {
+        return next(new ApiError("Session not found or revoked.", 401));
+    }
+
+    // 3) Update session usage
+    session.lastUsed = Date.now();
+    await session.save();
+
+    // 4) Issue new Access Token
+    const accessToken = signAccessToken(decoded.id, decoded.accountType);
+
+    res.status(200).json({
+        status: "success",
+        token: accessToken
+    });
+});
+
+export const logout = catchAsync(async (req, res, next) => {
+    const { refreshToken: incomingToken } = req.body;
+
+    if (incomingToken) {
+        await Session.findOneAndDelete({ refreshToken: incomingToken });
+    }
+
+    res.status(200).json({
+        status: "success",
+        message: "Logged out successfully. Session revoked."
     });
 });
