@@ -1,11 +1,3 @@
-import mongoose from "mongoose";
+import { wrapPrismaModel } from "./prismaShim.js";
 
-const productSchema = new mongoose.Schema({
-    name: String,
-    price: Number,
-    description: String
-});
-
-const Product = mongoose.models.Product || mongoose.model("Product", productSchema);
-
-export default Product;
+export default wrapPrismaModel("products");

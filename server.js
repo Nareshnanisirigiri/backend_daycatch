@@ -5,7 +5,6 @@ import errorHandler from "./middleware/errorHandler.js";
 import connectDatabase from "./config/db.js";
 import { PORT } from "./config/serverConfig.js";
 import helmet from "helmet";
-import mongoSanitize from "express-mongo-sanitize";
 import hpp from "hpp";
 import morgan from "morgan";
 import { rateLimit } from "express-rate-limit";
@@ -32,10 +31,9 @@ const app = express();
 // Set security HTTP headers
 app.use(helmet());
 
-// Development logging
-if (process.env.NODE_ENV === "development" || !process.env.NODE_ENV) {
-    app.use(morgan("dev"));
-}
+// Apply HTTP request logging universally as requested
+app.use(morgan("dev"));
+
 
 app.use(corsMiddleware);
 app.options("*", corsMiddleware); // Handle preflight requests for all routes
@@ -51,9 +49,6 @@ const limiter = rateLimit({
     message: "Too many requests from this IP, please try again in an hour!"
 });
 app.use("/api", limiter);
-
-// Data sanitization against NoSQL query injection
-app.use(mongoSanitize());
 
 // Prevent parameter pollution
 app.use(hpp());
@@ -88,8 +83,8 @@ app.use(errorHandler);
 async function startServer() {
     try {
         await connectDatabase();
-        console.log("MongoDB Connected Successfully");
-        
+        console.log("MySQL Connected Successfully");
+
         const server = app.listen(PORT, () => {
             console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
         });
@@ -103,7 +98,7 @@ async function startServer() {
             process.exit(1);
         });
     } catch (err) {
-        console.error("MongoDB Connection Error:", err.message);
+        console.error("Database Connection Error:", err.message);
         process.exit(1);
     }
 }

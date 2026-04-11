@@ -3,16 +3,19 @@ import * as storeController from "../controllers/storeController.js";
 import * as storeWorkspaceController from "../controllers/storeWorkspaceController.js";
 import {
     allowStoreWorkspaceAccess,
+    optionalProtect,
     protect,
     restrictToPlatformUsers
 } from "../middleware/authMiddleware.js";
+import { validate } from "../middleware/validator.js";
+import { createStoreSchema, updateStoreSchema } from "../validators/storeValidator.js";
 
 const router = express.Router();
 
 router
     .route("/")
-    .get(storeController.getAllStores)
-    .post(protect, restrictToPlatformUsers, storeController.createStore);
+    .get(optionalProtect, storeController.getAllStores)
+    .post(protect, restrictToPlatformUsers, validate(createStoreSchema), storeController.createStore);
 
 router.get("/:id/workspace/dashboard", protect, allowStoreWorkspaceAccess, storeWorkspaceController.getStoreWorkspaceDashboard);
 router
@@ -44,8 +47,8 @@ router
 
 router
     .route("/:id")
-    .get(storeController.getStore)
-    .patch(protect, restrictToPlatformUsers, storeController.updateStore)
+    .get(optionalProtect, storeController.getStore)
+    .patch(protect, restrictToPlatformUsers, validate(updateStoreSchema), storeController.updateStore)
     .delete(protect, restrictToPlatformUsers, storeController.deleteStore);
 
 export default router;

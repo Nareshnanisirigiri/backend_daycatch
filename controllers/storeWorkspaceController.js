@@ -1,6 +1,5 @@
 import catchAsync from "../utils/catchAsync.js";
 import APIError from "../utils/apiError.js";
-import { ObjectId } from "mongodb";
 import {
     AdminProducts,
     CancelledOrders,
@@ -18,6 +17,50 @@ import {
     StorePayments,
     StoreProducts
 } from "../models/index.js";
+
+const createEmptyCollectionModel = () => ({
+    find: () => ({
+        lean: async () => []
+    }),
+    findById: () => ({
+        lean: async () => null
+    }),
+    findByIdAndUpdate: async () => null,
+    findOne: async () => null,
+    findOneAndUpdate: async () => null,
+    create: async () => null,
+    collection: {
+        find: () => ({
+            skip() {
+                return this;
+            },
+            limit() {
+                return this;
+            },
+            toArray: async () => []
+        }),
+        findOne: async () => null,
+        insertOne: async () => ({ insertedId: null }),
+        findOneAndUpdate: async () => null,
+        deleteMany: async () => ({ deletedCount: 0 })
+    }
+});
+
+const SafeAdminProducts = AdminProducts || createEmptyCollectionModel();
+const SafeCancelledOrders = CancelledOrders || createEmptyCollectionModel();
+const SafeCompletedOrders = CompletedOrders || createEmptyCollectionModel();
+const SafeDayWiseOrders = DayWiseOrders || createEmptyCollectionModel();
+const SafeMissedOrders = MissedOrders || createEmptyCollectionModel();
+const SafeOngoingOrders = OngoingOrders || createEmptyCollectionModel();
+const SafeOrders = Orders || createEmptyCollectionModel();
+const SafeOutForOrders = OutForOrders || createEmptyCollectionModel();
+const SafePayoutRequests = PayoutRequests || createEmptyCollectionModel();
+const SafePaymentFailedOrders = PaymentFailedOrders || createEmptyCollectionModel();
+const SafePendingOrders = PendingOrders || createEmptyCollectionModel();
+const SafeStoreCallbackRequests = StoreCallbackRequests || createEmptyCollectionModel();
+const SafeStoreList = StoreList || createEmptyCollectionModel();
+const SafeStorePayments = StorePayments || createEmptyCollectionModel();
+const SafeStoreProducts = StoreProducts || createEmptyCollectionModel();
 
 const normalize = (value) => String(value ?? "").trim().toLowerCase();
 const sameId = (left, right) => String(left ?? "") === String(right ?? "");
@@ -176,29 +219,29 @@ const buildRecentOrderRecord = (order) => ({
 });
 
 const ORDER_VIEW_CONFIG = {
-    all: { model: Orders, collectionName: "orders" },
-    pending: { model: PendingOrders, collectionName: "pending orders" },
-    cancelled: { model: CancelledOrders, collectionName: "cancelled orders" },
-    confirmed: { model: OngoingOrders, collectionName: "ongoingorders" },
-    out_for_delivery: { model: OutForOrders, collectionName: "out for orders" },
-    payment_failed: { model: PaymentFailedOrders, collectionName: "payment failed orders" },
-    completed: { model: CompletedOrders, collectionName: "completed orders" },
-    missed: { model: MissedOrders, collectionName: "missed orders" },
-    day_wise: { model: DayWiseOrders, collectionName: "day wise orders" },
-    today: { model: DayWiseOrders, collectionName: "day wise orders", dateMode: "today" },
-    next_day: { model: DayWiseOrders, collectionName: "day wise orders", dateMode: "next_day" }
+    all: { model: SafeOrders, collectionName: "orders" },
+    pending: { model: SafePendingOrders, collectionName: "pending orders" },
+    cancelled: { model: SafeCancelledOrders, collectionName: "cancelled orders" },
+    confirmed: { model: SafeOngoingOrders, collectionName: "ongoingorders" },
+    out_for_delivery: { model: SafeOutForOrders, collectionName: "out for orders" },
+    payment_failed: { model: SafePaymentFailedOrders, collectionName: "payment failed orders" },
+    completed: { model: SafeCompletedOrders, collectionName: "completed orders" },
+    missed: { model: SafeMissedOrders, collectionName: "missed orders" },
+    day_wise: { model: SafeDayWiseOrders, collectionName: "day wise orders" },
+    today: { model: SafeDayWiseOrders, collectionName: "day wise orders", dateMode: "today" },
+    next_day: { model: SafeDayWiseOrders, collectionName: "day wise orders", dateMode: "next_day" }
 };
 
 const ORDER_COLLECTIONS = {
-    orders: Orders.collection,
-    "pending orders": PendingOrders.collection,
-    "cancelled orders": CancelledOrders.collection,
-    ongoingorders: OngoingOrders.collection,
-    "out for orders": OutForOrders.collection,
-    "payment failed orders": PaymentFailedOrders.collection,
-    "completed orders": CompletedOrders.collection,
-    "missed orders": MissedOrders.collection,
-    "day wise orders": DayWiseOrders.collection
+    orders: SafeOrders.collection,
+    "pending orders": SafePendingOrders.collection,
+    "cancelled orders": SafeCancelledOrders.collection,
+    ongoingorders: SafeOngoingOrders.collection,
+    "out for orders": SafeOutForOrders.collection,
+    "payment failed orders": SafePaymentFailedOrders.collection,
+    "completed orders": SafeCompletedOrders.collection,
+    "missed orders": SafeMissedOrders.collection,
+    "day wise orders": SafeDayWiseOrders.collection
 };
 
 const ORDER_CLEANUP_COLLECTIONS = [
@@ -289,14 +332,14 @@ const dedupeOrders = (orders = []) => {
 
 const getOrdersForAllView = async () => {
     const orderModels = [
-        Orders,
-        PendingOrders,
-        CancelledOrders,
-        OngoingOrders,
-        OutForOrders,
-        PaymentFailedOrders,
-        CompletedOrders,
-        MissedOrders
+        SafeOrders,
+        SafePendingOrders,
+        SafeCancelledOrders,
+        SafeOngoingOrders,
+        SafeOutForOrders,
+        SafePaymentFailedOrders,
+        SafeCompletedOrders,
+        SafeMissedOrders
     ];
 
     const results = await Promise.all(orderModels.map((model) => getRawCollectionDocuments(model)));
@@ -451,8 +494,8 @@ const buildOrderMutationPayload = (order, overrides = {}) => {
 };
 
 const findOrderByIdInCollection = async (collectionName, orderId) => {
-    if (!ObjectId.isValid(orderId)) return null;
-    return ORDER_COLLECTIONS[collectionName]?.findOne({ _id: new ObjectId(orderId) });
+    if (!orderId) return null;
+    return ORDER_COLLECTIONS[collectionName]?.findOne({ _id: orderId });
 };
 
 const findOrderByCartIdInCollection = async (collectionName, cartId) => {
@@ -560,7 +603,7 @@ const syncStoreOrderStatusChange = async ({
 };
 
 const findStoreOrFail = async (storeId) => {
-    const store = await StoreList.findById(storeId).lean();
+    const store = await SafeStoreList.findById(storeId).lean();
     if (!store) {
         throw new APIError("Store not found", 404);
     }
@@ -568,7 +611,7 @@ const findStoreOrFail = async (storeId) => {
 };
 
 const getStoreProductsForProfile = async (storeProfile) => {
-    const allStoreProducts = await StoreProducts.find().lean();
+    const allStoreProducts = await SafeStoreProducts.find().lean();
     return allStoreProducts.filter((record) => matchesStoreRecord(record, storeProfile));
 };
 
@@ -587,12 +630,12 @@ const ensureStoreProduct = async (storeProfile, productId) => {
         return existingProduct;
     }
 
-    const adminProduct = await AdminProducts.findById(productId).lean();
+    const adminProduct = await SafeAdminProducts.findById(productId).lean();
     if (!adminProduct) {
         throw new APIError("Store product not found for this store", 404);
     }
 
-    const createdProduct = await StoreProducts.create({
+    const createdProduct = await SafeStoreProducts.create({
         storeId: storeProfile.id,
         adminProductId: String(adminProduct._id),
         "Product Id": getStringValue(adminProduct?.["Product Id"]),
@@ -631,18 +674,18 @@ const getDashboardSummary = async (storeProfile) => {
         payouts
     ] = await Promise.all([
         getStoreProductsForProfile(storeProfile),
-        StorePayments.find().lean(),
-        Orders.find().lean(),
-        PendingOrders.find().lean(),
-        CancelledOrders.find().lean(),
-        OngoingOrders.find().lean(),
-        OutForOrders.find().lean(),
-        PaymentFailedOrders.find().lean(),
-        CompletedOrders.find().lean(),
-        MissedOrders.find().lean(),
-        DayWiseOrders.find().lean(),
-        StoreCallbackRequests.find().lean(),
-        PayoutRequests.find().lean()
+        SafeStorePayments.find().lean(),
+        SafeOrders.find().lean(),
+        SafePendingOrders.find().lean(),
+        SafeCancelledOrders.find().lean(),
+        SafeOngoingOrders.find().lean(),
+        SafeOutForOrders.find().lean(),
+        SafePaymentFailedOrders.find().lean(),
+        SafeCompletedOrders.find().lean(),
+        SafeMissedOrders.find().lean(),
+        SafeDayWiseOrders.find().lean(),
+        SafeStoreCallbackRequests.find().lean(),
+        SafePayoutRequests.find().lean()
     ]);
 
     const scopedPayments = storePayments.filter((record) => matchesStoreRecord(record, storeProfile));
@@ -765,7 +808,7 @@ export const updateStoreWorkspaceSettings = catchAsync(async (req, res) => {
     const existingStore = await findStoreOrFail(req.params.id);
     const updates = buildStoreSettingsPayload(req.body);
 
-    const updatedStore = await StoreList.findByIdAndUpdate(
+    const updatedStore = await SafeStoreList.findByIdAndUpdate(
         existingStore._id,
         {
             ...updates,
@@ -802,7 +845,7 @@ export const updateStoreCatalogPricing = catchAsync(async (req, res) => {
     const storeProfile = buildStoreProfile(store);
     const storeProduct = await ensureStoreProduct(storeProfile, req.params.productId);
 
-    const updatedProduct = await StoreProducts.findByIdAndUpdate(
+    const updatedProduct = await SafeStoreProducts.findByIdAndUpdate(
         storeProduct._id || storeProduct.id,
         {
             Price: getNumberValue(req.body.price, req.body.Price, storeProduct.Price),
@@ -826,7 +869,7 @@ export const updateStoreCatalogStock = catchAsync(async (req, res) => {
     const storeProfile = buildStoreProfile(store);
     const storeProduct = await ensureStoreProduct(storeProfile, req.params.productId);
 
-    const updatedProduct = await StoreProducts.findByIdAndUpdate(
+    const updatedProduct = await SafeStoreProducts.findByIdAndUpdate(
         storeProduct._id || storeProduct.id,
         {
             stock: getNumberValue(req.body.stock, req.body.Stock),
@@ -849,7 +892,7 @@ export const updateStoreCatalogOrderQuantity = catchAsync(async (req, res) => {
     const storeProfile = buildStoreProfile(store);
     const storeProduct = await ensureStoreProduct(storeProfile, req.params.productId);
 
-    const updatedProduct = await StoreProducts.findByIdAndUpdate(
+    const updatedProduct = await SafeStoreProducts.findByIdAndUpdate(
         storeProduct._id || storeProduct.id,
         {
             "Order Quantity": getNumberValue(req.body.orderQuantity, req.body["Order Quantity"]),
@@ -913,7 +956,7 @@ export const createStoreDeal = catchAsync(async (req, res) => {
         updatedAt: new Date()
     };
 
-    const updatedProduct = await StoreProducts.findByIdAndUpdate(
+    const updatedProduct = await SafeStoreProducts.findByIdAndUpdate(
         storeProduct._id || storeProduct.id,
         {
             deal,
@@ -984,7 +1027,7 @@ export const updateStoreSpotlight = catchAsync(async (req, res) => {
 
     await Promise.all(
         existingStoreProducts.map((product) =>
-            StoreProducts.findByIdAndUpdate(product._id, {
+            SafeStoreProducts.findByIdAndUpdate(product._id, {
                 spotlight: { enabled: false, position: null },
                 updatedAt: new Date()
             })
@@ -995,7 +1038,7 @@ export const updateStoreSpotlight = catchAsync(async (req, res) => {
 
     for (const [index, productId] of productIds.entries()) {
         const storeProduct = await ensureStoreProduct(storeProfile, productId);
-        const updatedProduct = await StoreProducts.findByIdAndUpdate(
+        const updatedProduct = await SafeStoreProducts.findByIdAndUpdate(
             storeProduct._id || storeProduct.id,
             {
                 spotlight: {

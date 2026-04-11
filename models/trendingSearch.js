@@ -2,21 +2,26 @@ import { createCollectionModel, types } from "./createCollectionModel.js";
 
 const { string, number, date } = types;
 
-export default createCollectionModel("TrendingSearch", "trending_search", {
-    Keyword: string,
-    "Store Product Id": string,
-    "Product Id": string,
-    "Product Name": string,
-    Category: string,
-    Type: string,
-    "Product Image": string,
-    Store: string,
-    Tags: string,
-    Unit: string,
-    MRP: number,
+export default createCollectionModel(
+    "TrendingSearch",
+    "trending_search",
+    {
+    keyword: string,
+    store_product_id: string,
+    product_id: string,
+    product_name: string,
+    category: string,
+    type: string,
+    product_image: string,
+    store: string,
+    tags: string,
+    unit: string,
+    mrp: number,
     price: number,
     status: string,
-    Position: number,
-    "Search Count": number,
-    "Last Updated": date
-});
+    position: number,
+    search_count: number,
+    last_updated: date
+    },
+    { timestamps: false }
+);

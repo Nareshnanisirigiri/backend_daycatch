@@ -1,8 +1,11 @@
 import jwt from "jsonwebtoken";
-import { StoreList } from "../models/index.js";
 import catchAsync from "../utils/catchAsync.js";
 import APIError from "../utils/apiError.js";
 import { findAdminAccountById } from "../utils/adminAccountUtils.js";
+import {
+    canSubAdminAccessStore,
+    getAssignedCityIdsForSubAdmin
+} from "../utils/subAdminAccessUtils.js";
 
 const getBearerToken = (authorizationHeader = "") => {
     if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
@@ -12,64 +15,69 @@ const getBearerToken = (authorizationHeader = "") => {
     return authorizationHeader.split(" ")[1]?.trim() || "";
 };
 
-const normalizeStatus = (value = "") => String(value || "").trim().toLowerCase();
+const isActiveStatus = (value) => {
+    if (value === 1 || value === true) return true;
+    const normalized = String(value ?? "").trim().toLowerCase();
+    return normalized === "1" || normalized === "active" || normalized === "approved" || normalized === "enabled";
+};
 
-export const protect = catchAsync(async (req, res, next) => {
+const attachAuthenticatedUserIfPresent = async (req, next, { requireToken = false } = {}) => {
     const token = getBearerToken(req.headers.authorization);
 
     if (!token) {
-        return next(new APIError("You are not logged in. Please authenticate first.", 401));
+        if (requireToken) {
+            return next(new APIError("You are not logged in. Please authenticate first.", 401));
+        }
+        return next();
     }
 
     let decoded;
     try {
         decoded = jwt.verify(token, process.env.JWT_SECRET || "access-secret-key");
     } catch (err) {
-        if (err.name === "TokenExpiredError") {
+        if (requireToken && err.name === "TokenExpiredError") {
             return next(new APIError("Your session has expired. Please refresh your token.", 401));
         }
-        return next(new APIError("Your session is invalid.", 401));
+        if (requireToken) {
+            return next(new APIError("Your session is invalid.", 401));
+        }
+        return next();
     }
 
-    const account = await findAdminAccountById(
-        decoded.id,
-        decoded.accountType,
-        "-password -passwordResetToken -passwordResetExpires"
-    );
+    const account = await findAdminAccountById(decoded.id, decoded.accountType);
     const currentUser = account?.user;
 
     if (!currentUser) {
-        return next(new APIError("The account for this session no longer exists.", 401));
+        if (requireToken) {
+            return next(new APIError("The account for this session no longer exists.", 401));
+        }
+        return next();
     }
 
-    if (normalizeStatus(currentUser.status || "Active") !== "active") {
+    if (!isActiveStatus(currentUser.status ?? "Active")) {
         return next(new APIError("This account is inactive. Please contact the Super Admin.", 403));
     }
 
-    if (currentUser.scope === "store") {
-        if (!currentUser.storeId) {
-            return next(new APIError("This store sub-admin is not assigned to any store.", 403));
-        }
-
-        const assignedStore = await StoreList.findById(currentUser.storeId).lean();
-        if (!assignedStore) {
-            return next(new APIError("The assigned store for this session no longer exists.", 403));
-        }
-
-        const storeStatus = normalizeStatus(assignedStore.status || assignedStore.Status || "Active");
-        if (!["active", "approved"].includes(storeStatus)) {
-            return next(new APIError("This store is not active yet. Please contact the Super Admin.", 403));
-        }
+    if (account?.accountType === "sub_admin") {
+        currentUser.assignedCityIds = await getAssignedCityIdsForSubAdmin(currentUser.id);
     }
 
     req.user = currentUser;
     req.userAccountType = account?.accountType || "";
     next();
+};
+
+export const protect = catchAsync(async (req, res, next) => {
+    await attachAuthenticatedUserIfPresent(req, next, { requireToken: true });
+});
+
+export const optionalProtect = catchAsync(async (req, res, next) => {
+    await attachAuthenticatedUserIfPresent(req, next, { requireToken: false });
 });
 
 export const restrictToSuperAdmin = (req, res, next) => {
-    const roleName = req.user?.["role Name"] || "";
-    if (roleName !== "Super Admin") {
+    const roleName = req.user?.role_name || req.user?.role_Name || req.user?.["role Name"] || "";
+    if (roleName !== "Super Admin" && req.user?.role_id !== 0) {
         return next(new APIError("Only the Super Admin can access this resource.", 403));
     }
     next();
@@ -89,13 +97,16 @@ export const allowStoreWorkspaceAccess = (req, res, next) => {
         return next(new APIError("Store workspace identifier is required.", 400));
     }
 
-    if (req.user?.scope !== "store") {
+    if (req.user?.role_id === 0) {
         return next();
     }
 
-    if (String(req.user?.storeId || "") !== workspaceStoreId) {
-        return next(new APIError("You can access only your assigned store workspace.", 403));
-    }
-
-    next();
+    canSubAdminAccessStore(req.user?.id, workspaceStoreId)
+        .then((allowed) => {
+            if (!allowed) {
+                return next(new APIError("You can access only stores from your assigned cities.", 403));
+            }
+            next();
+        })
+        .catch((error) => next(error));
 };

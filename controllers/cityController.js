@@ -1,8 +1,9 @@
-import { Cities } from "../models/index.js";
 import * as factory from "./handlerFactory.js";
 
-export const getAllCities = factory.getAll(Cities);
-export const getCity = factory.getOne(Cities);
-export const createCity = factory.createOne(Cities);
-export const updateCity = factory.updateOne(Cities);
-export const deleteCity = factory.deleteOne(Cities);
+const MODEL = "city";
+
+export const getAllCities = factory.getAll(MODEL);
+export const getCity = factory.getOne(MODEL);
+export const createCity = factory.createOne(MODEL);
+export const updateCity = factory.updateOne(MODEL);
+export const deleteCity = factory.deleteOne(MODEL);

@@ -7,7 +7,6 @@ export default createCollectionModel("DayWiseOrders", "day wise orders", {
     "Cart price": number,
     User: string,
     "Delivery Date": date,
-    Status: string,
     "Delivery Boy": string,
     "cart product": mixed,
     payment: mixed,

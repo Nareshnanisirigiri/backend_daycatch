@@ -1,0 +1,1077 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model aboutuspage {
+  about_id    Int    @id @default(autoincrement())
+  title       String @db.VarChar(255)
+  description String @db.LongText
+
+  @@map("aboutuspage")
+}
+
+model address {
+  address_id     Int       @id @default(autoincrement())
+  type           String    @db.VarChar(255)
+  user_id        Int
+  receiver_name  String    @db.VarChar(255)
+  receiver_phone String    @db.VarChar(255)
+  city           String    @db.VarChar(255)
+  society        String    @db.VarChar(255)
+  city_id        Int
+  society_id     Int
+  house_no       String    @db.VarChar(255)
+  landmark       String?   @db.VarChar(255)
+  state          String    @db.VarChar(255)
+  pincode        String    @db.VarChar(255)
+  lat            String    @db.VarChar(255)
+  lng            String    @db.VarChar(255)
+  select_status  Int
+  added_at       DateTime  @db.DateTime(0)
+  updated_at     DateTime? @default(now()) @db.DateTime(0)
+
+  @@map("address")
+}
+
+model admin {
+  id             Int     @id @default(autoincrement())
+  name           String  @db.VarChar(255)
+  email          String  @db.VarChar(255)
+  password       String  @db.VarChar(255)
+  admin_image    String  @db.VarChar(255)
+  remember_token String? @db.VarChar(255)
+  role_id        Int     @default(0)
+  role_name      String? @db.VarChar(255)
+
+  @@map("admin")
+}
+
+model super_admin {
+  id                   Int       @id @default(autoincrement())
+  name                 String    @db.VarChar(255)
+  email                String    @unique @db.VarChar(255)
+  password             String    @db.VarChar(255)
+  admin_image          String    @db.VarChar(255)
+  remember_token       String?   @db.VarChar(255)
+  role_id              Int       @default(0)
+  role_name            String?   @db.VarChar(255)
+  passwordResetToken   String?   @db.VarChar(255)
+  passwordResetExpires DateTime? @db.DateTime(0)
+  created_at           DateTime? @default(now()) @db.DateTime(0)
+  updated_at           DateTime? @default(now()) @db.DateTime(0)
+  status               Int       @default(1)
+
+  @@map("super_admin")
+}
+
+model sub_admin {
+  id                   Int       @id @default(autoincrement())
+  name                 String    @db.VarChar(255)
+  email                String    @unique @db.VarChar(255)
+  password             String    @db.VarChar(255)
+  admin_image          String    @db.VarChar(255)
+  remember_token       String?   @db.VarChar(255)
+  role_id              Int       @default(1)
+  role_name            String?   @db.VarChar(255)
+  phone                String?   @db.VarChar(50)
+  passwordResetToken   String?   @db.VarChar(255)
+  passwordResetExpires DateTime? @db.DateTime(0)
+  created_at           DateTime? @default(now()) @db.DateTime(0)
+  updated_at           DateTime? @default(now()) @db.DateTime(0)
+  status               Int       @default(1)
+
+  @@map("sub_admin")
+}
+
+model orders {
+  order_id               Int       @id @default(autoincrement())
+  user_id                Int
+  store_id               Int
+  address_id             Int
+  cart_id                String    @db.VarChar(255)
+  total_price            Float     @db.Float
+  price_without_delivery Float     @db.Float
+  total_products_mrp     Float     @db.Float
+  payment_method         String?   @db.VarChar(255)
+  paid_by_wallet         Float     @default(0) @db.Float
+  rem_price              Float     @default(0) @db.Float
+  avg_tax_per            Float?    @db.Float
+  total_tax_price        Float?    @db.Float
+  order_date             DateTime  @db.Date
+  delivery_date          DateTime  @db.Date
+  delivery_charge        Float     @default(0) @db.Float
+  time_slot              String    @db.VarChar(255)
+  dboy_id                Int       @default(0)
+  order_status           String    @default("Pending") @db.VarChar(255)
+  user_signature         String?   @db.VarChar(255)
+  cancelling_reason      String?   @db.VarChar(255)
+  coupon_id              Int       @default(0)
+  coupon_discount        Float     @default(0) @db.Float
+  payment_status         String?   @db.VarChar(255)
+  cancel_by_store        Int       @default(0)
+  dboy_incentive         Int?
+  updated_at             DateTime? @db.DateTime(0)
+
+  @@index([cart_id(length: 191)], map: "cart_id")
+  @@index([store_id], map: "store_id")
+  @@index([user_id], map: "user_id")
+  @@map("orders")
+}
+
+model users {
+  id                Int       @id @default(autoincrement())
+  name              String    @db.VarChar(255)
+  email             String?   @db.VarChar(255)
+  email_verified_at DateTime? @db.Timestamp(0)
+  password          String?   @db.VarChar(255)
+  remember_token    String?   @db.VarChar(100)
+  user_phone        String?   @db.VarChar(255)
+  device_id         String?   @db.VarChar(255)
+  user_image        String?   @default("N/A") @db.VarChar(255)
+  user_city         Int?
+  user_area         Int?
+  otp_value         String?   @db.VarChar(255)
+  status            Int       @default(1)
+  wallet            Float     @default(0) @db.Float
+  rewards           Int       @default(0)
+  is_verified       Int       @default(0)
+  block             Int       @default(2)
+  reg_date          DateTime  @db.Date
+  app_update        Int       @default(1)
+  facebook_id       String?   @db.VarChar(255)
+  referral_code     String?   @db.VarChar(255)
+  membership        Int       @default(0)
+  mem_plan_start    DateTime? @db.Date
+  mem_plan_expiry   DateTime? @db.Date
+  created_at        DateTime? @db.Timestamp(0)
+  updated_at        DateTime? @db.Timestamp(0)
+
+  @@map("users")
+}
+
+model roles {
+  role_id      Int    @id @default(autoincrement())
+  role_name    String @db.VarChar(255)
+  dashboard    Int    @default(0)
+  tax          Int    @default(0)
+  id           Int    @default(0)
+  membership   Int    @default(0)
+  reports      Int    @default(0)
+  notification Int    @default(0)
+  users        Int    @default(0)
+  category     Int    @default(0)
+  product      Int    @default(0)
+  area         Int    @default(0)
+  store        Int    @default(0)
+  orders       Int    @default(0)
+  payout       Int    @default(0)
+  rewards      Int    @default(0)
+  delivery_boy Int    @default(0)
+  pages        Int    @default(0)
+  feedback     Int    @default(0)
+  callback     Int    @default(0)
+  settings     Int    @default(0)
+  reason       Int    @default(0)
+
+  @@map("roles")
+}
+
+model categories {
+  cat_id      Int     @id @default(autoincrement())
+  title       String  @db.VarChar(255)
+  slug        String  @db.VarChar(255)
+  url         String? @db.VarChar(255)
+  image       String  @db.VarChar(255)
+  parent      Int     @default(0)
+  level       Int
+  description String? @db.VarChar(255)
+  status      Int     @default(1)
+  added_by    Int     @default(0)
+  tax_type    Int     @default(0)
+  tax_name    String? @db.VarChar(255)
+  tax_per     Float   @default(0) @db.Float
+  tx_id       Int?
+
+  @@map("categories")
+}
+
+model store_products {
+  p_id        Int   @id @default(autoincrement())
+  varient_id  Int
+  stock       Int
+  store_id    Int
+  mrp         Float @db.Float
+  price       Float @db.Float
+  min_ord_qty Int   @default(1)
+  max_ord_qty Int   @default(100)
+
+  @@index([store_id], map: "store_id")
+  @@index([varient_id], map: "varient_id")
+}
+
+model trending_search {
+  trend_id   Int @id @default(autoincrement())
+  varient_id Int
+}
+
+model super_admin_driver_incentive {
+  id        Int    @id @default(autoincrement())
+  incentive String @db.VarChar(255)
+
+  @@map("super_admin_driver_incentive")
+}
+
+model super_admin_payouts {
+  payout_id         Int    @id @default(autoincrement())
+  payout_date       String @db.VarChar(255)
+  respond_payout_id String @db.VarChar(255)
+  bill              String @db.VarChar(255)
+  store_id          String @db.VarChar(255)
+  payout_amt        Float  @db.Float
+
+  @@map("super_admin_payouts")
+}
+
+model alots_sms {
+  alots_id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  bearer_token    String?   @db.VarChar(255)
+  sender_id       String?   @default("DCATCH") @db.VarChar(255)
+  pe_id           String?   @db.VarChar(255)
+  dlt_template_id String?   @db.VarChar(255)
+  chain_value     String?   @db.VarChar(255)
+  active          Int?      @default(1)
+  created_at      DateTime? @db.Timestamp(0)
+  updated_at      DateTime? @db.Timestamp(0)
+}
+
+model app_link {
+  id               Int     @id @default(autoincrement())
+  android_app_link String? @db.LongText
+  ios_app_link     String? @db.LongText
+}
+
+model app_notice {
+  app_notice_id Int    @id @default(autoincrement())
+  status        Int
+  notice        String @db.VarChar(255)
+}
+
+model callback_req {
+  callback_req_id Int      @id @default(autoincrement())
+  user_id         Int
+  user_name       String   @db.VarChar(255)
+  user_phone      String   @db.VarChar(255)
+  processed       Int      @default(0)
+  date            DateTime @db.Date
+  store_id        Int
+}
+
+model cancel_for {
+  res_id Int    @id @default(autoincrement())
+  reason String @db.VarChar(255)
+}
+
+model cart {
+  cart_id    Int    @id @default(autoincrement())
+  product_id String @db.VarChar(255)
+  varient_id String @db.VarChar(255)
+  user_id    String @db.VarChar(255)
+  qty        String @db.VarChar(255)
+
+  @@index([product_id], map: "product_id")
+  @@index([user_id], map: "user_id")
+  @@index([varient_id], map: "varient_id")
+}
+
+model cart_payments {
+  py_id           Int      @id @default(autoincrement())
+  payment_id      String   @db.VarChar(255)
+  amount          String   @db.VarChar(255)
+  cart_id         String   @db.VarChar(255)
+  payment_gateway String   @db.VarChar(255)
+  created_at      DateTime @db.DateTime(0)
+  updated_at      DateTime @db.DateTime(0)
+}
+
+model cart_rewards {
+  cart_rewards_id Int    @id @default(autoincrement())
+  cart_id         String @db.VarChar(255)
+  rewards         Int
+  user_id         Int
+}
+
+model cart_status {
+  status_id        Int       @id @default(autoincrement())
+  pending          DateTime? @db.DateTime(0)
+  confirm          DateTime? @db.DateTime(0)
+  out_for_delivery DateTime? @db.DateTime(0)
+  completed        DateTime? @db.DateTime(0)
+  cancelled        DateTime? @db.DateTime(0)
+  cart_id          String    @db.VarChar(255)
+}
+
+model city {
+  city_id   Int    @id @default(autoincrement())
+  city_name String @db.VarChar(100)
+}
+
+model country_code {
+  code_id      Int @id @default(autoincrement())
+  country_code Int
+}
+
+model coupon {
+  coupon_id          Int      @id @default(autoincrement())
+  coupon_name        String   @db.VarChar(255)
+  coupon_image       String   @db.VarChar(255)
+  coupon_code        String   @db.VarChar(255)
+  coupon_description String   @db.VarChar(255)
+  start_date         DateTime @db.DateTime(0)
+  end_date           DateTime @db.DateTime(0)
+  cart_value         Int
+  amount             Int
+  type               String   @db.VarChar(255)
+  uses_restriction   Int      @default(1)
+  store_id           Int
+}
+
+model currency {
+  id            Int    @id @default(autoincrement())
+  currency_name String @db.VarChar(255)
+  currency_sign String @db.Char(255)
+}
+
+model deal_product {
+  deal_id    Int      @id @default(autoincrement())
+  varient_id Int
+  deal_price Float    @db.Float
+  valid_from DateTime @db.DateTime(0)
+  valid_to   DateTime @db.DateTime(0)
+  status     Int
+  store_id   Int
+}
+
+model delivery_boy {
+  dboy_id       Int     @id @default(autoincrement())
+  boy_name      String  @db.VarChar(255)
+  boy_phone     String  @db.VarChar(255)
+  boy_city      String  @db.VarChar(255)
+  password      String  @db.VarChar(255)
+  device_id     String? @db.VarChar(255)
+  boy_loc       String  @db.VarChar(255)
+  lat           String  @db.VarChar(255)
+  lng           String  @db.VarChar(255)
+  status        Int     @default(1)
+  store_id      Int     @default(0)
+  store_dboy_id Int     @default(0)
+  added_by      String  @default("admin") @db.VarChar(255)
+  id_no         String? @db.VarChar(255)
+  id_photo      String? @db.VarChar(255)
+  image         String? @db.VarChar(255)
+  id_name       String? @db.VarChar(255)
+  current_lat   String? @db.VarChar(255)
+  current_lng   String? @db.VarChar(255)
+}
+
+model delivery_rating {
+  rating_id   Int    @id @default(autoincrement())
+  user_id     Int
+  dboy_id     Int
+  rating      Float  @db.Float
+  description String @db.VarChar(255)
+}
+
+model driver_bank {
+  ac_id       Int     @id @default(autoincrement())
+  driver_id   Int
+  ac_no       String  @db.VarChar(255)
+  ifsc        String  @db.VarChar(255)
+  holder_name String  @db.VarChar(255)
+  bank_name   String  @db.VarChar(255)
+  upi         String? @db.VarChar(255)
+}
+
+model driver_callback_req {
+  callback_req_id Int      @id @default(autoincrement())
+  driver_name     String   @db.VarChar(255)
+  driver_phone    String   @db.VarChar(255)
+  processed       Int      @default(0)
+  date            DateTime @db.Date
+  driver_id       Int
+}
+
+model driver_incentive {
+  id              Int    @id @default(autoincrement())
+  dboy_id         Int
+  earned_till_now String @db.VarChar(255)
+  paid_till_now   String @db.VarChar(255)
+  remaining       String @db.VarChar(255)
+}
+
+model driver_notification {
+  not_id         Int       @id @default(autoincrement())
+  not_title      String    @db.VarChar(255)
+  image          String?   @db.VarChar(255)
+  not_message    String    @db.LongText
+  dboy_id        Int
+  read_by_driver Int       @default(0)
+  created_at     DateTime? @default(now()) @db.DateTime(0)
+}
+
+model failed_jobs {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @db.VarChar(255)
+  connection String   @db.Text
+  queue      String   @db.Text
+  payload    String   @db.LongText
+  exception  String   @db.LongText
+  failed_at  DateTime @default(now()) @db.Timestamp(0)
+}
+
+model fcm {
+  id                Int    @id @default(autoincrement())
+  sender_id         String @db.VarChar(255)
+  server_key        String @db.LongText
+  store_server_key  String @db.LongText
+  driver_server_key String @db.LongText
+}
+
+model firebase {
+  f_id   Int @id @default(autoincrement())
+  status Int
+}
+
+model firebase_iso {
+  iso_id   Int    @id @default(autoincrement())
+  iso_code String @db.VarChar(255)
+}
+
+model freedeliverycart {
+  id             Int   @id @default(autoincrement())
+  min_cart_value Float @default(0) @db.Float
+  del_charge     Float @default(0) @db.Float
+  store_id       Int
+}
+
+model id_types {
+  type_id Int    @id @default(autoincrement())
+  name    String @db.VarChar(255)
+}
+
+model image_space {
+  space_id      Int @id @default(autoincrement())
+  digital_ocean Int
+  aws           Int
+  same_server   Int
+}
+
+model jobs {
+  id           Int    @id @default(autoincrement()) @db.UnsignedInt
+  queue        String @db.VarChar(255)
+  payload      String @db.LongText
+  attempts     Int    @db.UnsignedTinyInt
+  reserved_at  Int?   @db.UnsignedInt
+  available_at Int    @db.UnsignedInt
+  created_at   Int    @db.UnsignedInt
+
+  @@index([queue(length: 191)], map: "jobs_queue_index")
+}
+
+model licensebox {
+  id           Int               @id @default(autoincrement())
+  license      String            @db.VarChar(255)
+  client       String            @db.VarChar(255)
+  installed_at DateTime?         @default(now()) @db.Timestamp(0)
+  updated_at   DateTime?         @default(now()) @db.Timestamp(0)
+  status       licensebox_status @default(inactive)
+  message      String?           @db.VarChar(255)
+}
+
+model list_cart {
+  l_cid           Int  @id @default(autoincrement())
+  l_vid           Int
+  l_qty           Int
+  l_uid           Int
+  ord_by_photo_id Int?
+}
+
+model map_api {
+  id          Int    @id @default(autoincrement())
+  map_api_key String @db.VarChar(255)
+}
+
+model map_settings {
+  map_id     Int @id @default(autoincrement())
+  mapbox     Int
+  google_map Int
+}
+
+model mapbox {
+  map_id     Int    @id @default(autoincrement())
+  mapbox_api String @db.VarChar(255)
+}
+
+model membership_bought {
+  buy_id          Int      @id @default(autoincrement())
+  user_id         Int
+  mem_id          Int
+  mem_start_date  DateTime @db.Date
+  mem_end_date    DateTime @db.Date
+  price           String   @db.VarChar(255)
+  buy_date        DateTime @db.Date
+  paid_by         String?  @db.VarChar(255)
+  transaction_id  String?  @db.VarChar(255)
+  payment_gateway String?  @db.VarChar(255)
+  payment_status  String   @default("success") @db.VarChar(255)
+}
+
+model membership_plan {
+  plan_id          Int     @id @default(autoincrement())
+  image            String? @db.LongText
+  plan_name        String  @db.VarChar(255)
+  free_delivery    Int     @default(0)
+  reward           Int     @default(0)
+  instant_delivery Int     @default(0)
+  plan_description String  @db.LongText
+  days             Int     @default(0)
+  price            Int
+  hide             Int     @default(0)
+}
+
+model migrations {
+  id        Int    @id @default(autoincrement()) @db.UnsignedInt
+  migration String @db.VarChar(255)
+  batch     Int
+}
+
+model minimum_maximum_order_value {
+  min_max_id Int    @id @default(autoincrement())
+  min_value  String @db.VarChar(255)
+  max_value  String @db.VarChar(255)
+  store_id   Int
+}
+
+model msg91 {
+  id        Int    @id @default(autoincrement())
+  sender_id String @db.VarChar(255)
+  api_key   String @db.VarChar(255)
+  active    Int
+}
+
+model notificationby {
+  noti_id Int @id @default(autoincrement())
+  user_id Int
+  sms     Int
+  app     Int
+  email   Int
+}
+
+model oauth_access_tokens {
+  id         String    @id @db.VarChar(100)
+  user_id    BigInt?   @db.UnsignedBigInt
+  client_id  BigInt    @db.UnsignedBigInt
+  name       String?   @db.VarChar(255)
+  scopes     String?   @db.Text
+  revoked    Boolean
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
+  expires_at DateTime? @db.DateTime(0)
+
+  @@index([user_id], map: "oauth_access_tokens_user_id_index")
+}
+
+model oauth_auth_codes {
+  id         String    @id @db.VarChar(100)
+  user_id    BigInt    @db.UnsignedBigInt
+  client_id  BigInt    @db.UnsignedBigInt
+  scopes     String?   @db.Text
+  revoked    Boolean
+  expires_at DateTime? @db.DateTime(0)
+
+  @@index([user_id], map: "oauth_auth_codes_user_id_index")
+}
+
+model oauth_clients {
+  id                     Int       @id @default(autoincrement()) @db.UnsignedInt
+  user_id                BigInt?   @db.UnsignedBigInt
+  name                   String    @db.VarChar(255)
+  secret                 String?   @db.VarChar(100)
+  provider               String?   @db.VarChar(255)
+  redirect               String    @db.Text
+  personal_access_client Boolean
+  password_client        Boolean
+  revoked                Boolean
+  created_at             DateTime? @db.Timestamp(0)
+  updated_at             DateTime? @db.Timestamp(0)
+
+  @@index([user_id], map: "oauth_clients_user_id_index")
+}
+
+model oauth_personal_access_clients {
+  id         Int       @id @default(autoincrement()) @db.UnsignedInt
+  client_id  BigInt    @db.UnsignedBigInt
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
+}
+
+model oauth_refresh_tokens {
+  id              String    @id @db.VarChar(100)
+  access_token_id String    @db.VarChar(100)
+  revoked         Boolean
+  expires_at      DateTime? @db.DateTime(0)
+
+  @@index([access_token_id], map: "oauth_refresh_tokens_access_token_id_index")
+}
+
+model order_by_photo {
+  ord_id        Int      @id @default(autoincrement())
+  user_id       Int
+  list_photo    String   @db.VarChar(255)
+  store_id      Int
+  address_id    Int
+  delivery_date DateTime @db.Date
+  processed     Int      @default(0)
+  reason        String?  @db.VarChar(255)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model password_resets {
+  email      String    @db.VarChar(255)
+  token      String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+
+  @@index([email(length: 191)], map: "password_resets_email_index")
+  @@ignore
+}
+
+model payout_req_valid {
+  val_id   Int @id @default(autoincrement())
+  min_amt  Int
+  min_days Int
+}
+
+model payout_requests {
+  req_id     Int      @id @default(autoincrement())
+  store_id   String   @db.VarChar(255)
+  payout_amt Float    @db.Float
+  req_date   DateTime @db.Date
+  complete   Int      @default(0)
+}
+
+model plan_buy_history {
+  wallet_id       Int      @id @default(autoincrement())
+  amount          Int
+  type            String   @db.VarChar(255)
+  user_id         Int
+  created_at      DateTime @db.Date
+  transaction_id  String?  @db.VarChar(255)
+  before_recharge Int?
+  after_recharge  Int?
+  payment_gateway String?  @db.VarChar(255)
+}
+
+model product {
+  product_id    Int    @id @default(autoincrement())
+  cat_id        Int
+  product_name  String @db.VarChar(255)
+  product_image String @db.VarChar(255)
+  type          String @default("Regular") @db.VarChar(255)
+  hide          Int    @default(0)
+  added_by      Int    @default(0)
+  approved      Int    @default(1)
+}
+
+model product_images {
+  image_id   Int    @id @default(autoincrement())
+  image      String @db.VarChar(255)
+  type       Int    @default(0)
+  product_id Int
+}
+
+model product_rating {
+  rate_id     Int      @id @default(autoincrement())
+  store_id    Int
+  varient_id  Int
+  rating      String   @db.VarChar(255)
+  description String   @db.LongText
+  user_id     Int
+  created_at  DateTime @db.DateTime(0)
+  updated_at  DateTime @db.DateTime(0)
+}
+
+model product_variations {
+  id        Int    @id @default(autoincrement())
+  productId Int
+  unit      String @db.VarChar(150)
+  mrp       String @db.VarChar(150)
+  price     String @db.VarChar(150)
+
+  @@index([productId], map: "productid")
+}
+
+model product_varient {
+  varient_id    Int     @id @default(autoincrement())
+  product_id    Int
+  quantity      Int
+  unit          String  @db.VarChar(255)
+  base_mrp      Float?  @db.Float
+  base_price    Float   @db.Float
+  description   String  @db.LongText
+  varient_image String  @db.VarChar(255)
+  ean           String? @db.VarChar(255)
+  approved      Int     @default(1)
+  added_by      Int     @default(0)
+}
+
+model razorpay_key {
+  key_id  Int    @id @default(autoincrement())
+  api_key String @db.VarChar(255)
+}
+
+model recent_search {
+  id      Int    @id @default(autoincrement())
+  keyword String @db.VarChar(255)
+  user_id Int
+}
+
+model reedem_values {
+  reedem_id    Int    @id @default(autoincrement())
+  reward_point Int
+  value        String @db.VarChar(255)
+}
+
+model referral_points {
+  id         Int    @id @default(autoincrement())
+  name       String @db.VarChar(255)
+  points     String @db.VarChar(255)
+  created_at String @db.VarChar(255)
+  updated_at String @db.VarChar(255)
+}
+
+model reward_points {
+  reward_id      Int @id @default(autoincrement())
+  min_cart_value Int
+  reward_point   Int
+}
+
+model sec_banner {
+  banner_id    Int     @id @default(autoincrement())
+  banner_name  String  @db.VarChar(255)
+  banner_image String? @db.VarChar(255)
+  varient_id   Int
+  product_name String  @db.VarChar(255)
+  store_id     Int
+  qty_unit     String  @db.VarChar(255)
+}
+
+model service_area {
+  ser_id          Int    @id @default(autoincrement())
+  society_name    String @db.VarChar(255)
+  society_id      Int
+  delivery_charge Float  @default(0) @db.Float
+  store_id        Int
+  added_by        Int    @default(0)
+  enabled         Int    @default(1)
+  city_id         Int
+}
+
+model settings {
+  id         Int       @id @default(autoincrement()) @db.UnsignedInt
+  name       String
+  value      String    @db.LongText
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
+}
+
+model smsby {
+  by_id  Int @id @default(autoincrement())
+  msg91  Int @default(1)
+  twilio Int @default(0)
+  status Int @default(1)
+}
+
+model society {
+  society_id   Int    @id @default(autoincrement())
+  society_name String @db.VarChar(255)
+  city_id      Int
+}
+
+model spotlight {
+  sp_id    Int @id @default(autoincrement())
+  p_id     Int
+  store_id Int
+
+  @@index([store_id], map: "store_id")
+}
+
+model store {
+  id                 Int     @id @default(autoincrement())
+  store_name         String  @db.VarChar(255)
+  employee_name      String  @db.VarChar(255)
+  phone_number       String  @db.VarChar(255)
+  store_photo        String  @default("N/A") @db.VarChar(255)
+  city               String  @db.VarChar(255)
+  city_id            Int
+  admin_share        Float   @default(0) @db.Float
+  device_id          String? @db.VarChar(255)
+  email              String  @db.VarChar(255)
+  password           String  @db.VarChar(255)
+  del_range          Float   @db.Float
+  lat                String  @db.VarChar(255)
+  lng                String  @db.VarChar(255)
+  address            String  @db.VarChar(255)
+  admin_approval     Int     @default(1)
+  orders             Int     @default(1)
+  store_status       Int     @default(1)
+  store_opening_time String  @db.VarChar(255)
+  store_closing_time String  @db.VarChar(255)
+  time_interval      Int
+  inactive_reason    String? @db.LongText
+  id_type            String? @db.VarChar(255)
+  id_number          String? @db.VarChar(255)
+  id_photo           String? @db.VarChar(255)
+}
+
+model store_assign_homecat {
+  assign_id  Int    @id @default(autoincrement())
+  homecat_id String @db.VarChar(500)
+  cat_id     String @db.VarChar(500)
+}
+
+model store_bank {
+  ac_id       Int     @id @default(autoincrement())
+  store_id    Int
+  ac_no       String  @db.VarChar(255)
+  ifsc        String  @db.VarChar(255)
+  holder_name String  @db.VarChar(255)
+  bank_name   String  @db.VarChar(255)
+  upi         String? @db.VarChar(255)
+}
+
+model store_banner {
+  banner_id    Int     @id @default(autoincrement())
+  banner_name  String  @db.VarChar(255)
+  banner_image String? @db.VarChar(255)
+  store_id     Int
+  cat_id       Int
+  type         String  @default("H") @db.VarChar(255)
+}
+
+model store_callback_req {
+  callback_req_id Int      @id @default(autoincrement())
+  store_name      String   @db.VarChar(255)
+  store_phone     String   @db.VarChar(255)
+  processed       Int      @default(0)
+  date            DateTime @db.Date
+  store_id        Int
+}
+
+model store_delivery_boy {
+  dboy_id      Int     @id @default(autoincrement())
+  boy_name     String  @db.VarChar(255)
+  boy_phone    String  @db.VarChar(255)
+  boy_city     String  @db.VarChar(255)
+  password     String  @db.VarChar(255)
+  device_id    String? @db.VarChar(255)
+  boy_loc      String  @db.VarChar(255)
+  lat          String  @db.VarChar(255)
+  lng          String  @db.VarChar(255)
+  status       Int     @default(1)
+  store_id     Int
+  added_by     String  @default("store") @db.VarChar(255)
+  ad_dboy_id   Int     @default(0)
+  rem_by_admin Int     @default(0)
+  id_no        String? @db.VarChar(255)
+  id_photo     String? @db.VarChar(255)
+  id_name      String? @db.VarChar(255)
+}
+
+model store_doc {
+  doc_id   Int    @id
+  store_id Int
+  document String @db.VarChar(255)
+}
+
+model store_driver_incentive {
+  id        Int    @id @default(autoincrement())
+  incentive String @db.VarChar(255)
+  store_id  Int
+}
+
+model store_earning {
+  id       Int   @id @default(autoincrement())
+  store_id Int
+  paid     Float @db.Float
+}
+
+model store_homecat {
+  homecat_id     Int    @id
+  homecat_name   String @db.VarChar(500)
+  order          String @db.VarChar(200)
+  homecat_status String @db.VarChar(200)
+  store_id       Int
+}
+
+model store_notification {
+  not_id        Int       @id @default(autoincrement())
+  not_title     String    @db.VarChar(255)
+  image         String?   @db.VarChar(255)
+  not_message   String    @db.LongText
+  store_id      Int
+  read_by_store Int       @default(0)
+  created_at    DateTime? @default(now()) @db.DateTime(0)
+}
+
+model store_orders {
+  store_order_id    Int      @id @default(autoincrement())
+  product_name      String   @db.VarChar(255)
+  varient_image     String   @db.VarChar(255)
+  quantity          Float    @db.Float
+  unit              String   @db.VarChar(255)
+  varient_id        Int
+  qty               Int
+  price             Float    @db.Float
+  total_mrp         Float    @db.Float
+  order_cart_id     String   @db.VarChar(255)
+  order_date        DateTime @db.DateTime(0)
+  store_approval    Int      @default(1)
+  store_id          Int
+  description       String   @db.LongText
+  tx_per            Int?
+  price_without_tax Float?   @db.Float
+  tx_price          Float?   @db.Float
+  tx_name           String?  @db.VarChar(255)
+  type              String   @default("Regular") @db.VarChar(255)
+}
+
+model store_society {
+  store_society_id Int @id @default(autoincrement())
+  society_id       Int
+  store_id         Int
+}
+
+model sub_admin_city_access {
+  id           Int      @id @default(autoincrement())
+  sub_admin_id Int
+  city_id      Int
+  created_by   Int?
+  created_at   DateTime @default(now()) @db.DateTime(0)
+  updated_at   DateTime @default(now()) @db.DateTime(0)
+
+  @@unique([sub_admin_id, city_id], map: "uq_sub_admin_city")
+  @@index([city_id], map: "idx_sub_admin_city_access_city")
+  @@index([sub_admin_id], map: "idx_sub_admin_city_access_sub_admin")
+}
+
+model tags {
+  tag_id     Int    @id @default(autoincrement())
+  product_id Int
+  tag        String @db.VarChar(255)
+
+  @@index([product_id], map: "product_id")
+}
+
+model tax_types {
+  tax_id Int    @id @default(autoincrement())
+  name   String @db.VarChar(200)
+}
+
+model tbl_referral {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  referral_by Int
+  created_at  DateTime @db.Date
+}
+
+model tbl_top_cat {
+  id         Int    @id @default(autoincrement())
+  cat_id     Int
+  cat_rank   Int
+  created_at String @db.VarChar(255)
+  updated_at String @db.VarChar(255)
+}
+
+model tbl_web_setting {
+  set_id       Int     @id @default(autoincrement())
+  icon         String  @db.VarChar(255)
+  name         String  @db.VarChar(255)
+  favicon      String  @db.VarChar(255)
+  number_limit Int
+  last_loc     Int     @default(0)
+  footer_text  String? @db.LongText
+  live_chat    Int     @default(1)
+}
+
+model termspage {
+  terms_id    Int    @id @default(autoincrement())
+  title       String @db.VarChar(255)
+  description String @db.LongText
+}
+
+model time_slot {
+  time_slot_id Int    @id @default(autoincrement())
+  open_hour    String @db.VarChar(255)
+  close_hour   String @db.VarChar(255)
+  time_slot    Int
+}
+
+model twilio {
+  twilio_id    Int    @id @default(autoincrement())
+  twilio_sid   String @db.VarChar(255)
+  twilio_token String @db.VarChar(255)
+  twilio_phone String @db.VarChar(255)
+  active       Int
+}
+
+model user_notification {
+  noti_id      Int       @id @default(autoincrement())
+  user_id      Int
+  noti_title   String    @db.VarChar(255)
+  image        String?   @db.VarChar(255)
+  noti_message String    @db.LongText
+  read_by_user Int       @default(0)
+  created_at   DateTime? @default(now()) @db.DateTime(0)
+}
+
+model user_support {
+  supp_id    Int    @id @default(autoincrement())
+  query      String @db.VarChar(255)
+  id         Int
+  type       String @db.VarChar(255)
+  created_at String @db.VarChar(255)
+}
+
+model wallet_recharge_history {
+  wallet_recharge_history Int      @id @default(autoincrement())
+  user_id                 Int
+  recharge_status         String   @db.VarChar(255)
+  amount                  Float    @db.Float
+  payment_gateway         String   @db.VarChar(255)
+  date_of_recharge        DateTime @db.Date
+}
+
+model wishlist {
+  wish_id       Int      @id @default(autoincrement())
+  user_id       Int
+  varient_id    Int
+  quantity      String   @db.VarChar(255)
+  unit          String   @db.VarChar(255)
+  price         String   @db.VarChar(255)
+  mrp           String   @db.VarChar(255)
+  product_name  String   @db.VarChar(255)
+  description   String   @db.LongText
+  varient_image String   @db.VarChar(255)
+  store_id      Int
+  created_at    DateTime @default(now()) @db.DateTime(0)
+  updated_at    DateTime @default(now()) @db.DateTime(0)
+}
+
+enum licensebox_status {
+  active
+  inactive
+}

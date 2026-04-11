@@ -17,9 +17,22 @@ export const validate = (validations) => {
             return next();
         }
 
-        // 3) Format errors into a readable string/object for the client
-        const errorDetails = errors.array().map((err) => `${err.path}: ${err.msg}`).join(", ");
+        // 3) Return clean, user-facing validation feedback (industry-style toasts)
+        const formattedErrors = errors.array().map((err) => ({
+            field: err.path,
+            message: err.msg
+        }));
+        const primaryMessage = formattedErrors[0]?.message || "Please check your input and try again.";
         
-        return next(new ApiError(`Validation failed: ${errorDetails}`, 400));
+        console.error(
+            `[VALIDATION FAILED] Path: ${req.path}, Body:`,
+            req.body,
+            "Errors:",
+            formattedErrors.map((item) => `${item.field}: ${item.message}`).join(", ")
+        );
+
+        const validationError = new ApiError(primaryMessage, 400);
+        validationError.validationErrors = formattedErrors;
+        return next(validationError);
     };
 };

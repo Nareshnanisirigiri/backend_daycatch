@@ -1,6 +1,6 @@
 import catchAsync from "../utils/catchAsync.js";
 import APIError from "../utils/apiError.js";
-import { getAggregationDefinition } from "../aggregations/index.js";
+import { getAggregationDefinition, runAggregation } from "../aggregations/index.js";
 
 export const getReport = catchAsync(async (req, res, next) => {
     const { reportName } = req.params;
@@ -13,8 +13,7 @@ export const getReport = catchAsync(async (req, res, next) => {
     const limit = req.query.limit * 1 || 50;
     const skip = req.query.skip * 1 || 0;
 
-    const pipeline = [...definition.pipeline, { $skip: skip }, { $limit: limit }];
-    const results = await definition.model.aggregate(pipeline);
+    const results = await runAggregation(definition, { skip, limit });
 
     res.status(200).json({
         status: "success",

@@ -2,6 +2,7 @@ export const collections = [
     "super-admin",
     "sub-admin",
     "parentcategories",
+    "categories",
     "subcategories",
     "tax",
     "id",
@@ -18,12 +19,12 @@ export const collections = [
     "product_banners",
     "order_by_photo_requests",
     "users",
-    "Adminproducts",
-    "storeProducts",
+    "admin_products",
+    "store_products",
     "trending_search",
     "cities",
     "area",
-    "storeList",
+    "storelist",
     "storepayments",
     "storeapproval",
     "orders",
@@ -59,9 +60,10 @@ export const collections = [
     "img store",
     "app notice",
     "cancelling reason",
-    "Wallet_Rechage_History",
+    "wallet_recharge_history",
     "roles",
     "rejectedbystore"
 ];
 
-export const collectionSet = new Set(collections);
+// Always use lowercase for the set to enable case-insensitive lookup in the router
+export const collectionSet = new Set(collections.map(c => c.toLowerCase()));

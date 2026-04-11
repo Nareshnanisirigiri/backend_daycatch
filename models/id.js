@@ -1,10 +1,8 @@
 import { createCollectionModel, types } from "./createCollectionModel.js";
 
-const { string } = types;
+const { string, number } = types;
 
 export default createCollectionModel("IdDocument", "id", {
-    ID: string,
-    "ID Name": string,
-    "ID number": string,
-    image: string
-});
+    id_name: string,
+    status: number
+}, { timestamps: false });

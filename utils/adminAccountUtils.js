@@ -1,127 +1,142 @@
-import { SuperAdmin, SubAdmin } from "../models/index.js";
+import { prisma } from "../config/db.js";
 
 export const SUPER_ADMIN_ROLE_NAME = "Super Admin";
 export const ADMIN_ACCOUNT_TYPES = Object.freeze({
-    SUPER: "super-admin",
-    SUB: "sub-admin"
+    SUPER: "super_admin",
+    SUB: "sub_admin"
 });
 
 export const normalizeEmail = (email = "") => String(email).trim().toLowerCase();
-export const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export const normalizeRoleName = (roleName = "") => String(roleName || "").trim();
 export const isSuperAdminRole = (roleName = "") =>
     normalizeRoleName(roleName).toLowerCase() === SUPER_ADMIN_ROLE_NAME.toLowerCase();
 
-const EMAIL_LOOKUP_FIELDS = ["Email", "email", "Email ID"];
-const ACCOUNT_MODELS = {
-    [ADMIN_ACCOUNT_TYPES.SUPER]: SuperAdmin,
-    [ADMIN_ACCOUNT_TYPES.SUB]: SubAdmin
-};
+export const getAdminAccountTypeForRole = (roleName = "", roleId = null) =>
+    isSuperAdminRole(roleName) || Number(roleId) === 0
+        ? ADMIN_ACCOUNT_TYPES.SUPER
+        : ADMIN_ACCOUNT_TYPES.SUB;
 
-const applyProjection = (query, projection) => (projection ? query.select(projection) : query);
-
-export const buildEmailLookup = (normalizedEmail = "") => {
-    const escapedEmail = escapeRegExp(normalizedEmail);
-
-    return {
-        $or: EMAIL_LOOKUP_FIELDS.map((field) => ({
-            [field]: { $regex: `^\\s*${escapedEmail}\\s*$`, $options: "i" }
-        }))
-    };
-};
-
-export const getAdminModelByAccountType = (accountType = "") => ACCOUNT_MODELS[accountType] || null;
-
-export const getAdminModelForRole = (roleName = "") =>
-    isSuperAdminRole(roleName) ? SuperAdmin : SubAdmin;
-
-export const getAdminAccountTypeForRole = (roleName = "") =>
-    isSuperAdminRole(roleName) ? ADMIN_ACCOUNT_TYPES.SUPER : ADMIN_ACCOUNT_TYPES.SUB;
-
-export const findSuperAdminAccount = async (filter = {}, projection = null) => {
-    const superAdminFilter = { ...filter, "role Name": SUPER_ADMIN_ROLE_NAME };
-
-    let user = await applyProjection(SuperAdmin.findOne(superAdminFilter), projection);
-    if (user) {
-        return { accountType: ADMIN_ACCOUNT_TYPES.SUPER, user };
-    }
-
-    user = await applyProjection(SubAdmin.findOne(superAdminFilter), projection);
-    return user ? { accountType: ADMIN_ACCOUNT_TYPES.SUB, user } : null;
-};
-
-export const findAdminAccountByEmail = async (normalizedEmail = "", projection = null) => {
-    if (!normalizedEmail) return null;
-
-    const emailLookup = buildEmailLookup(normalizedEmail);
-    const superAdminAccount = await findSuperAdminAccount(emailLookup, projection);
-    if (superAdminAccount) {
-        return superAdminAccount;
-    }
-
-    const user = await applyProjection(SubAdmin.findOne(emailLookup), projection);
-    return user ? { accountType: ADMIN_ACCOUNT_TYPES.SUB, user } : null;
-};
-
-export const findAdminAccountById = async (id, accountType = "", projection = null) => {
-    if (!id) return null;
-
-    const specificModel = getAdminModelByAccountType(accountType);
-    const accountTypesToSearch = specificModel
-        ? [accountType, ...Object.values(ADMIN_ACCOUNT_TYPES).filter((type) => type !== accountType)]
-        : [ADMIN_ACCOUNT_TYPES.SUPER, ADMIN_ACCOUNT_TYPES.SUB];
-
-    for (const type of accountTypesToSearch) {
-        const model = getAdminModelByAccountType(type);
-        if (!model) continue;
-
-        const user = await applyProjection(model.findById(id), projection);
-        if (user) {
-            return { accountType: type, user };
+const getModelByAccountType = (accountType = "") => {
+    if (accountType === ADMIN_ACCOUNT_TYPES.SUPER) {
+        if (!prisma.super_admin) {
+            throw new Error("Prisma super_admin model is unavailable.");
         }
+        return prisma.super_admin;
+    }
+
+    if (accountType === ADMIN_ACCOUNT_TYPES.SUB) {
+        if (!prisma.sub_admin) {
+            throw new Error("Prisma sub_admin model is unavailable.");
+        }
+        return prisma.sub_admin;
     }
 
     return null;
 };
 
-export const findAdminAccountByResetToken = async (hashedToken = "", projection = null) => {
-    if (!hashedToken) return null;
+const withAccountType = (user, accountType = "") => {
+    if (!user) return null;
+    const resolvedAccountType = accountType || getAdminAccountTypeForRole(user.role_name, user.role_id);
+    return { accountType: resolvedAccountType, user };
+};
 
-    const filter = {
-        passwordResetToken: hashedToken,
-        passwordResetExpires: { $gt: Date.now() }
-    };
+const findByEmailInAccountType = async (normalizedEmail = "", accountType) => {
+    const model = getModelByAccountType(accountType);
+    if (!model) return null;
 
-    const superAdminAccount = await findSuperAdminAccount(filter, projection);
-    if (superAdminAccount) {
-        return superAdminAccount;
+    return model.findFirst({
+        where: { email: normalizedEmail }
+    });
+};
+
+export const findAdminAccountByEmail = async (normalizedEmail = "") => {
+    if (!normalizedEmail) return null;
+
+    const superAdmin = await findByEmailInAccountType(normalizedEmail, ADMIN_ACCOUNT_TYPES.SUPER);
+    if (superAdmin) return withAccountType(superAdmin, ADMIN_ACCOUNT_TYPES.SUPER);
+
+    const subAdmin = await findByEmailInAccountType(normalizedEmail, ADMIN_ACCOUNT_TYPES.SUB);
+    return withAccountType(subAdmin, ADMIN_ACCOUNT_TYPES.SUB);
+};
+
+export const findSuperAdminAccount = async () => {
+    const admin = await getModelByAccountType(ADMIN_ACCOUNT_TYPES.SUPER).findFirst({
+        where: {
+            OR: [
+                { role_name: SUPER_ADMIN_ROLE_NAME },
+                { role_id: 0 }
+            ]
+        }
+    });
+
+    return withAccountType(admin, ADMIN_ACCOUNT_TYPES.SUPER);
+};
+
+export const findAdminAccountById = async (id, accountType = "") => {
+    if (!id) return null;
+
+    const parsedId = parseInt(id, 10);
+    if (Number.isNaN(parsedId)) return null;
+
+    if (accountType) {
+        const model = getModelByAccountType(accountType);
+        if (!model) return null;
+        const user = await model.findUnique({ where: { id: parsedId } });
+        return withAccountType(user, accountType);
     }
 
-    const user = await applyProjection(SubAdmin.findOne(filter), projection);
-    return user ? { accountType: ADMIN_ACCOUNT_TYPES.SUB, user } : null;
+    const superAdmin = await getModelByAccountType(ADMIN_ACCOUNT_TYPES.SUPER).findUnique({
+        where: { id: parsedId }
+    });
+    if (superAdmin) return withAccountType(superAdmin, ADMIN_ACCOUNT_TYPES.SUPER);
+
+    const subAdmin = await getModelByAccountType(ADMIN_ACCOUNT_TYPES.SUB).findUnique({
+        where: { id: parsedId }
+    });
+    return withAccountType(subAdmin, ADMIN_ACCOUNT_TYPES.SUB);
+};
+
+export const findAdminAccountByResetToken = async (hashedToken = "") => {
+    if (!hashedToken) return null;
+
+    const superUser = await getModelByAccountType(ADMIN_ACCOUNT_TYPES.SUPER).findFirst({
+        where: {
+            passwordResetToken: hashedToken,
+            passwordResetExpires: { gt: new Date() }
+        }
+    });
+    if (superUser) return withAccountType(superUser, ADMIN_ACCOUNT_TYPES.SUPER);
+
+    const subUser = await getModelByAccountType(ADMIN_ACCOUNT_TYPES.SUB).findFirst({
+        where: {
+            passwordResetToken: hashedToken,
+            passwordResetExpires: { gt: new Date() }
+        }
+    });
+
+    return withAccountType(subUser, ADMIN_ACCOUNT_TYPES.SUB);
 };
 
 export const findDuplicateAdminByEmail = async (normalizedEmail = "", exclude = {}) => {
     if (!normalizedEmail) return null;
 
-    const emailLookup = buildEmailLookup(normalizedEmail);
-    const { accountType = "", id = "" } = exclude;
+    const excludedId = exclude?.id ? parseInt(exclude.id, 10) : null;
+    const excludedType = exclude?.accountType || "";
 
-    const superAdminFilter = { ...emailLookup, "role Name": SUPER_ADMIN_ROLE_NAME };
-    if (accountType === ADMIN_ACCOUNT_TYPES.SUPER && id) {
-        superAdminFilter._id = { $ne: id };
-    }
+    const superUser = await getModelByAccountType(ADMIN_ACCOUNT_TYPES.SUPER).findFirst({
+        where: {
+            email: normalizedEmail,
+            ...((excludedId && excludedType === ADMIN_ACCOUNT_TYPES.SUPER) ? { NOT: { id: excludedId } } : {})
+        }
+    });
+    if (superUser) return withAccountType(superUser, ADMIN_ACCOUNT_TYPES.SUPER);
 
-    let user = await SuperAdmin.findOne(superAdminFilter);
-    if (user) {
-        return { accountType: ADMIN_ACCOUNT_TYPES.SUPER, user };
-    }
+    const subUser = await getModelByAccountType(ADMIN_ACCOUNT_TYPES.SUB).findFirst({
+        where: {
+            email: normalizedEmail,
+            ...((excludedId && excludedType === ADMIN_ACCOUNT_TYPES.SUB) ? { NOT: { id: excludedId } } : {})
+        }
+    });
 
-    const subAdminFilter = { ...emailLookup };
-    if (accountType === ADMIN_ACCOUNT_TYPES.SUB && id) {
-        subAdminFilter._id = { $ne: id };
-    }
-
-    user = await SubAdmin.findOne(subAdminFilter);
-    return user ? { accountType: ADMIN_ACCOUNT_TYPES.SUB, user } : null;
+    return withAccountType(subUser, ADMIN_ACCOUNT_TYPES.SUB);
 };

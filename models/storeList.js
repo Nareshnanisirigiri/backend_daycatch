@@ -1,35 +1,21 @@
 import { createCollectionModel, types } from "./createCollectionModel.js";
 
-const { string, number, mixed } = types;
+const { string, number, integer } = types;
 
-export default createCollectionModel("StoreList", "storeList", {
-    "Profile Pic": string,
-    "Store Name": string,
-    "Employee Name": string,
-    City: string,
-    Mobile: string,
-    Email: string,
-    orders: number,
-    Details: mixed,
-    "owner name": string,
-    contact: string,
-    mail: string,
-    time: string,
+export default createCollectionModel("StoreList", "storelist", {
+    store_name: { type: string, unique: true },
+    employee_name: string,
+    phone_number: string,
+    city: string,
+    email: string,
+    password: { type: string, defaultValue: "" },
     address: string,
-    slot: string,
-    status: string,
-    "ID Type": string,
-    "ID Number": string,
-    "ID Image": string,
-    "admin share": number,
-    "Delivery Range": number,
-    "Orders Per Slot": number,
-    "Start Time": string,
-    "End Time": string,
-    "Slot Interval": number,
-    "Free Delivery Limit": number,
-    "Delivery Charge": number,
-    "Minimum Order Value": number,
-    "Maximum Order Value": number,
-    "Driver Incentive": number
-});
+    lat: string,
+    lng: string,
+    status: { type: integer, defaultValue: 1 },
+    admin_share: { type: number, defaultValue: 0 },
+    store_photo: string,
+    store_opening_time: string,
+    store_closing_time: string,
+    pincode: string
+}, { timestamps: false });

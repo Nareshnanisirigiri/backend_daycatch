@@ -4,6 +4,9 @@ import { protect, restrictToSuperAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+router.get("/me/access", protect, subAdminController.getMyAccessSummary);
+router.get("/me/cities", protect, subAdminController.getMyAccessibleCities);
+
 router.use(protect, restrictToSuperAdmin);
 
 router
@@ -16,5 +19,10 @@ router
     .get(subAdminController.getSubAdmin)
     .patch(subAdminController.updateSubAdmin)
     .delete(subAdminController.deleteSubAdmin);
+
+router
+    .route("/:id/cities")
+    .get(subAdminController.getSubAdminCities)
+    .put(subAdminController.updateSubAdminCities);
 
 export default router;
